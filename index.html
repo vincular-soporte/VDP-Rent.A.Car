@@ -6180,513 +6180,313 @@
       const ent = reserva.gestionEntrega || '—';
       const dev = reserva.gestionDevolucion || '—';
 
+      // Tarea 4: enmascarar número de tarjeta — solo últimos 4 dígitos visibles
+      const tarjetaMasked = (() => {
+        const num = (reserva.tarjetaNumero || '').replace(/\s/g,'');
+        if (!num) return '&nbsp;';
+        return 'XXXXXXXXXXXX' + num.slice(-4);
+      })();
+
       const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><title>Contrato N° ${reserva.codigo} — VDP</title>
 <style>
-  @page { size: A4 portrait; margin: 7mm 8mm; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; background: #fff; }
+  @page { size: A4 portrait; margin: 6mm 6mm 5mm 6mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background:#fff; color:#111; font-family:Arial,Helvetica,sans-serif; }
+  @media print { .np{display:none!important;} body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} }
+  .np { padding:8px 12px; background:#eee; display:flex; gap:8px; align-items:center; }
+  .np button { padding:6px 14px; font-size:12px; font-weight:700; border:1px solid #999; background:#fff; border-radius:4px; cursor:pointer; }
+  .np .pri { background:#C8102E; color:#fff; border-color:#C8102E; }
+  .front { width:198mm; height:285mm; display:flex; flex-direction:column; overflow:hidden; position:relative; page-break-after:always; }
+  .front > *:not(.wm) { position:relative; z-index:1; }
+  .wm { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100mm; height:100mm; opacity:.05; z-index:0; pointer-events:none; }
+  .wm img { width:100%; height:100%; object-fit:contain; }
+  /* HEADER */
+  .hdr { display:grid; grid-template-columns:58mm 1fr 36mm; align-items:center; border-bottom:2px solid #111; padding-bottom:4px; margin-bottom:4px; gap:3px; flex-shrink:0; }
+  .hi { line-height:1.65; }
+  .hi .co { font-size:9px; font-weight:700; display:block; }
+  .hi span { font-size:7px; display:block; color:#222; }
+  .hl { text-align:center; }
+  .hl img { max-height:62px; max-width:100%; object-fit:contain; }
+  .hr { display:flex; flex-direction:column; gap:3px; }
+  .cn { border:2px solid #111; text-align:center; padding:2px 4px; }
+  .cn .cl { font-size:6.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+  .cn .cv { font-size:22px; font-weight:900; color:#C8102E; line-height:1.05; }
+  .rb { border:1.5px solid #C8102E; padding:2px 4px; font-size:6.5px; font-weight:700; color:#C8102E; line-height:1.55; text-align:center; }
+  /* BODY */
+  .body { display:grid; grid-template-columns:102mm 1fr; gap:3px; flex:1; min-height:0; overflow:hidden; }
+  .cl { display:flex; flex-direction:column; overflow:hidden; }
+  .cr { display:flex; flex-direction:column; gap:3px; overflow:hidden; }
+  /* TABLAS */
+  table { width:100%; border-collapse:collapse; table-layout:fixed; }
+  td { border:0.6px solid #555; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bh  { background:#111; color:#fff; font-size:7.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:2.5px 5px; }
+  .bh.sub  { background:#555; }
+  .bh.red  { background:#C8102E; }
+  .bh.grey { background:#777; }
+  .k  { background:#efefef; font-size:6.8px; font-weight:700; text-transform:uppercase; color:#333; padding:1.4px 4px; width:36%; }
+  .v  { font-size:7.8px; padding:1.4px 4px; }
+  .vb { font-size:7.8px; padding:1.4px 4px; font-weight:700; }
+  .k4 { background:#efefef; font-size:6.8px; font-weight:700; text-transform:uppercase; color:#333; padding:1.4px 4px; }
+  .v4 { font-size:7.8px; padding:1.4px 4px; }
+  .tk { background:#FDE68A; font-size:7px; font-weight:700; text-transform:uppercase; padding:2px 4px; }
+  .tv { background:#FDE68A; font-size:8px; font-weight:700; padding:2px 4px; }
+  .nb { border-top:none; }
+  /* ADVERTENCIAS */
+  .adv { border:0.6px solid #555; border-top:none; padding:2.5px 4px; display:flex; flex-direction:column; gap:1.5px; }
+  .ai  { font-size:7px; font-weight:700; color:#C8102E; line-height:1.4; }
+  /* LEGAL */
+  .legal { border:0.6px solid #555; font-size:6.3px; line-height:1.3; padding:2.5px 4px; text-align:justify; flex-shrink:0; margin-top:3px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; }
+  /* FIRMAS */
+  .frow { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding-top:15px; }
+  .frow > div { text-align:center; border-top:1px solid #111; padding-top:2px; font-size:7px; font-weight:700; }
+  .flbl { font-size:6.8px; font-weight:700; text-transform:uppercase; color:#444; letter-spacing:.04em; margin-top:3px; }
+  .fiva { text-align:center; font-size:6.3px; color:#666; border-top:0.5px solid #bbb; padding-top:2px; margin-top:2px; }
+  /* DORSO */
+  .back { page-break-before:always; }
+  .terms { padding:6mm 4mm; font-size:7px; line-height:1.37; column-count:2; column-gap:10px; column-rule:1px solid #ccc; text-align:justify; }
+  .terms h1 { font-size:12px; text-align:center; margin:0 0 2px; column-span:all; text-transform:uppercase; letter-spacing:.05em; }
+  .terms h2 { font-size:9.5px; text-align:center; margin:0 0 7px; column-span:all; font-weight:700; }
+  .terms p  { margin:0 0 3.5px; break-inside:avoid-column; }
+  .ctrl { column-span:all; margin-top:4mm; }
+  .ct  { font-size:8.5px; font-weight:700; text-align:center; border:1px solid #111; padding:2.5px; background:#f4f4f4; }
+  .cs  { font-size:7px; text-align:center; border:1px solid #111; border-top:none; padding:2px 4px; }
+  .clg { font-size:7px; text-align:center; border:1px solid #111; border-top:none; padding:1.5px 4px; font-weight:700; }
+  .csv { text-align:center; border:1px solid #111; border-top:none; padding:3px; }
+  .cck { border:1px solid #111; border-top:none; padding:3px 6px; font-size:7px; }
+  .cct { font-weight:700; text-align:center; font-size:7.5px; margin-bottom:2px; }
+  .chr { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  .chi { display:flex; align-items:center; gap:3px; }
+  .chb { width:9px; height:9px; border:1px solid #555; display:inline-block; flex-shrink:0; }
+  .cno { border:1px solid #111; border-top:none; font-size:6.8px; padding:2px 5px; font-style:italic; color:#444; line-height:1.33; text-align:center; }
+  .cob { border:1px solid #111; border-top:none; font-size:7px; padding:2px 5px; }
+  .tf  { column-span:all; margin-top:5mm; border-top:1px solid #111; padding-top:3px; }
+  .tff { display:flex; align-items:center; gap:6px; font-size:7.5px; padding:5px 0 8px; }
+  .tff .ln { flex:1; border-bottom:1px solid #111; }
+  .fl  { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; padding-top:24px; font-size:7.5px; }
+  .fl > div { text-align:center; border-top:1px solid #111; padding-top:2px; font-weight:700; }
+</style></head><body>
 
-  /* ========== PÁGINA FRENTE ========== */
-  .page-front {
-    width: 100%;
-    height: 283mm;
-    max-height: 283mm;
-    overflow: hidden;
-    page-break-after: always;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 3.5px;
-  }
-  .page-back {
-    page-break-before: always;
-    position: relative;
-    width: 100%;
-    overflow: hidden;
-  }
-
-  /* === MARCA DE AGUA === */
-  .watermark {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 120mm; height: 120mm;
-    opacity: 0.055;
-    z-index: 0;
-    pointer-events: none;
-  }
-  .watermark img { width: 100%; height: 100%; object-fit: contain; }
-  .page-front > *:not(.watermark) { position: relative; z-index: 1; }
-
-  /* ========== HEADER ========== */
-  .header {
-    display: grid;
-    grid-template-columns: 200px 1fr 130px;
-    gap: 8px;
-    align-items: center;
-    border-bottom: 2.5px solid #111;
-    padding-bottom: 5px;
-    flex-shrink: 0;
-  }
-  .header .empresa-info { line-height: 1.5; }
-  .header .empresa-info .name {
-    font-size: 10px; font-weight: 700; display: block; letter-spacing: 0.02em;
-  }
-  .header .empresa-info span {
-    font-size: 8px; display: block; color: #333;
-  }
-  .header .logo-big {
-    display: flex; align-items: center; justify-content: center; height: 58px;
-  }
-  .header .logo-big img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .header .right-col { display: flex; flex-direction: column; gap: 4px; }
-  .header .contract-num {
-    border: 2px solid #111; padding: 3px 8px 4px; text-align: right; line-height: 1.1;
-  }
-  .header .contract-num .lbl { font-size: 7.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-  .header .contract-num .val { font-size: 22px; font-weight: 900; color: #C8102E; line-height: 1; }
-  .header .ad-box {
-    border: 1.5px solid #C8102E; padding: 3px 6px;
-    font-weight: 700; color: #C8102E; font-size: 7px; line-height: 1.4; text-align: center;
-  }
-
-  /* ========== BANDA TIPO ========== */
-  .tipo-band {
-    flex-shrink: 0;
-    padding: 3.5px 8px;
-    font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    text-align: center;
-  }
-  .tipo-band.particular { background: #FEE2E2; border: 1px solid #C8102E; color: #C8102E; }
-  .tipo-band.empresa    { background: #DBEAFE; border: 1px solid #1E3A8A; color: #1E3A8A; }
-  .tipo-band .sub { font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 6px; color: #555; font-size: 8px; }
-
-  /* ========== BLOQUES ========== */
-  .section { display: flex; flex-direction: column; gap: 3.5px; flex: 1; overflow: hidden; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3.5px; }
-  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3.5px; }
-
-  .blk {
-    border: 1px solid #222; overflow: hidden; display: flex; flex-direction: column;
-  }
-  .blk-title {
-    background: #111; color: #fff; padding: 2.5px 6px;
-    font-size: 7.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
-    flex-shrink: 0;
-  }
-  .blk-title.blue { background: #1E3A8A; }
-  .blk-title.red  { background: #C8102E; }
-  .blk-title.grey { background: #555; }
-
-  .blk table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .blk table td {
-    padding: 1.8px 6px; border-top: 1px dotted #bbb;
-    vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .blk table tr:first-child td { border-top: none; }
-  .blk table td.k {
-    background: #f4f4f4; font-weight: 700; width: 42%;
-    font-size: 7.5px; text-transform: uppercase; color: #333; letter-spacing: 0.02em;
-  }
-  .blk table td.v { font-size: 8.5px; color: #111; }
-  .blk table td.v.b { font-weight: 700; }
-  .blk .extra-note {
-    background: #FEF3C7; color: #92400E; font-size: 7px;
-    font-style: italic; padding: 2px 6px; text-align: center; white-space: normal;
-  }
-
-  /* ========== GRID CONDUCTOR EMPRESA (2 cols internas) ========== */
-  .cond-inner { display: grid; grid-template-columns: 1fr 1fr; }
-  .cond-inner table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .cond-inner table td {
-    padding: 1.8px 6px; border-top: 1px dotted #bbb;
-    vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .cond-inner table tr:first-child td { border-top: none; }
-  .cond-inner table td.k {
-    background: #f4f4f4; font-weight: 700; width: 45%;
-    font-size: 7.5px; text-transform: uppercase; color: #333;
-  }
-  .cond-inner table td.v { font-size: 8.5px; }
-  .cond-inner table td.v.b { font-weight: 700; }
-  .cond-inner .divider { border-left: 1px dotted #bbb; }
-
-  /* ========== ADVERTENCIAS ========== */
-  .adv-inner { padding: 4px 6px; display: flex; flex-direction: column; gap: 1.5px; }
-  .adv-item { font-size: 8px; font-weight: 700; color: #C8102E; line-height: 1.4; }
-  .adv-obs { font-size: 7.5px; color: #333; margin-top: 2px; font-weight: 400; line-height: 1.35;
-    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-
-  /* ========== CIERRE ========== */
-  .cierre-inner { padding: 3px 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-
-  /* ========== LEGAL ========== */
-  .legal {
-    font-size: 6.8px; line-height: 1.3; padding: 4px 6px;
-    border: 1px solid #222; text-align: justify; flex-shrink: 0;
-    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
-  }
-
-  /* ========== FIRMAS ========== */
-  .firmas-wrap { flex-shrink: 0; }
-  .firma-row {
-    display: grid; gap: 8px; padding-top: 16px; margin-top: 2px; font-size: 8px;
-  }
-  .firma-row.cols3 { grid-template-columns: 1fr 1fr 1fr; }
-  .firma-row > div {
-    text-align: center; border-top: 1px solid #111; padding-top: 2px; font-weight: 700;
-  }
-  .conductor-adic-label {
-    font-size: 7.5px; font-weight: 700; margin-top: 6px; padding: 1px 0; color: #333;
-    letter-spacing: 0.04em; text-transform: uppercase;
-  }
-  .footer-info {
-    text-align: center; font-size: 7px; color: #666;
-    border-top: 1px solid #ccc; padding-top: 2px; margin-top: 1px;
-  }
-
-  /* ========== DORSO ========== */
-  .terms-page {
-    padding: 8mm 5mm; font-size: 7.4px; line-height: 1.38;
-    column-count: 2; column-gap: 12px; column-rule: 1px solid #ccc; text-align: justify;
-  }
-  .terms-page h1 {
-    font-size: 13px; text-align: center; margin: 0 0 3px;
-    column-span: all; text-transform: uppercase; letter-spacing: 0.05em;
-  }
-  .terms-page h2 {
-    font-size: 10px; text-align: center; margin: 0 0 8px;
-    column-span: all; font-weight: 700;
-  }
-  .terms-page p { margin: 0 0 4px; break-inside: avoid-column; }
-  .terms-firma {
-    margin-top: 8mm; column-span: all; border-top: 1px solid #000; padding-top: 4px;
-  }
-  .terms-firma .row {
-    display: grid; grid-template-columns: 80px 1fr; gap: 8px; padding: 12px 0 4px;
-  }
-  .terms-firma .row .lbl { font-size: 8px; font-weight: 700; }
-  .terms-firma .row .ln { border-bottom: 1px solid #000; height: 12px; }
-  .terms-firma .firma-line {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
-    padding-top: 28px; margin-top: 8px; font-size: 8.5px;
-  }
-  .terms-firma .firma-line > div {
-    text-align: center; border-top: 1px solid #000; padding-top: 2px; font-weight: 700;
-  }
-
-  /* ========== IMPRESIÓN ========== */
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .no-print { display: none !important; }
-  }
-  .actions {
-    padding: 12px; background: #f0f0f0;
-    display: flex; gap: 8px; justify-content: center; align-items: center;
-  }
-  .actions button {
-    padding: 8px 18px; font-size: 13px; cursor: pointer;
-    border: 1px solid #000; background: white; border-radius: 4px; font-weight: 700;
-  }
-  .actions .primary { background: #C8102E; color: white; border-color: #C8102E; }
-  .actions .info { font-size: 11px; color: #555; }
-</style>
-</head><body>
-
-<div class="actions no-print">
-  <button class="primary" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+<div class="np">
+  <button class="pri" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
   <button onclick="window.close()">Cerrar</button>
-  <span class="info">📄 Doble faz: Frente = contrato · Dorso = T&amp;C</span>
+  <span style="font-size:11px;color:#555;">📄 Doble faz: Frente = contrato · Dorso = T&amp;C</span>
 </div>
 
-<!-- ============ FRENTE ============ -->
-<div class="page-front">
-  <div class="watermark"><img src="data:image/webp;base64,${LOGO_B64}" alt=""/></div>
+<div class="front">
+<div class="wm"><img src="data:image/webp;base64,${LOGO_B64}" alt=""/></div>
 
-  <!-- HEADER -->
-  <div class="header">
-    <div class="empresa-info">
-      <span class="name">${truncate(e.razonSocial, 40)}</span>
-      <span>${truncate(e.oficinaCentral, 52)}</span>
-      <span>WhatsApp: ${e.whatsappGuardia} · Tel: ${e.telefono}</span>
-      <span>${truncate(e.email, 42)}</span>
-    </div>
-    <div class="logo-big"><img src="data:image/webp;base64,${LOGO_B64}" alt="VDP"/></div>
-    <div class="right-col">
-      <div class="contract-num">
-        <div class="lbl">Contrato N°</div>
-        <div class="val">${(reserva.codigo || '----').toString().padStart(4,'0')}</div>
-      </div>
-      <div class="ad-box">
-        CARGUE COMBUSTIBLE PREMIUM<br>TOLERANCIA DE ESPERA 1 HORA<br>LAVADO NO INCLUIDO
-      </div>
-    </div>
+<div class="hdr">
+  <div class="hi">
+    <span class="co">${e.razonSocial}</span>
+    <span>OFICINA CENTRAL ${e.oficinaCentral}</span>
+    <span>WhatsApp 24 Hs : ${e.whatsappGuardia}</span>
+    <span>Tel: ${e.telefono}</span>
+    <span>${e.email}</span>
   </div>
-
-  <!-- BANDA TIPO -->
-  <div class="tipo-band ${tipoReserva === 'Empresa' ? 'empresa' : 'particular'}">
-    ${tipoReserva === 'Empresa' ? '🏢 Reserva Empresarial' : '👤 Reserva Particular'}
-    ${empresaNombre ? `<span class="sub">· ${truncate(empresaNombre, 35)}</span>` : ''}
-  </div>
-
-  <!-- SECCIÓN PRINCIPAL -->
-  <div class="section">
-
-    ${tipoReserva === 'Empresa' && empresaObj ? `
-    <!-- EMPRESA: fila 1 — Datos empresa + Términos alquiler -->
-    <div class="grid-2">
-      <div class="blk">
-        <div class="blk-title blue">Responsable de la Reserva — Empresa</div>
-        <table>
-          <tr><td class="k">Empresa / Razón Social</td><td class="v b">${truncate(empresaObj.empresa, 38)}</td></tr>
-          <tr><td class="k">CUIT</td><td class="v b">${truncate(empresaObj.cuit, 25)}</td></tr>
-          <tr><td class="k">Dirección</td><td class="v">${truncate(empresaObj.direccion, 40)}</td></tr>
-          <tr><td class="k">Teléfono</td><td class="v">${truncate(empresaObj.telefono, 25)}</td></tr>
-          <tr><td class="k">Email</td><td class="v">${truncate(empresaObj.mail || empresaObj.email, 34)}</td></tr>
-        </table>
-      </div>
-      <div class="blk">
-        <div class="blk-title">Términos de Alquiler</div>
-        <table>
-          <tr><td class="k">Lugar entrega</td><td class="v b">${truncate(reserva.lugarEntrega, 28)}</td></tr>
-          <tr><td class="k">Fecha entrega</td><td class="v b">${fmtFecha(reserva.fechaEntrega)}</td></tr>
-          <tr><td class="k">Hora entrega</td><td class="v b">${fmtHora(reserva.horaEntrega)}</td></tr>
-          <tr><td class="k">Lugar devolución</td><td class="v b">${truncate(reserva.lugarDevolucion, 28)}</td></tr>
-          <tr><td class="k">Fecha devolución</td><td class="v b">${fmtFecha(reserva.fechaDevolucion)}</td></tr>
-          <tr><td class="k">Hora devolución</td><td class="v b">${fmtHora(reserva.horaDevolucion)}</td></tr>
-          <tr><td class="k">Tipo km</td><td class="v b">${reserva.tipoKilometraje || 'LIBRE'}</td></tr>
-          <tr><td class="k">Total días</td><td class="v b">${dias}</td></tr>
-          <tr><td class="k">Generó</td><td class="v">${gen}</td></tr>
-          <tr><td class="k">Entrega</td><td class="v">${ent}</td></tr>
-        </table>
-      </div>
-    </div>
-
-    <!-- EMPRESA: fila 2 — Conductor asignado (representante) con 2 cols internas -->
-    <div class="blk">
-      <div class="blk-title blue">Conductor Asignado — Representante de la Empresa</div>
-      <div class="cond-inner">
-        <table>
-          <tr><td class="k">Nombre y Apellido</td><td class="v b">${truncate(cliente?.nombre, 32)}</td></tr>
-          <tr><td class="k">DNI / Pasaporte</td><td class="v">${truncate(cliente?.dni, 22)}</td></tr>
-          <tr><td class="k">Domicilio</td><td class="v">${truncate(cliente?.domicilio, 32)}</td></tr>
-          <tr><td class="k">Teléfono</td><td class="v">${truncate(cliente?.telefono, 22)}</td></tr>
-        </table>
-        <table class="divider">
-          <tr><td class="k">Nacionalidad</td><td class="v">${truncate(cliente?.nacionalidad, 20)}</td></tr>
-          <tr><td class="k">Email</td><td class="v">${truncate(cliente?.mail, 30)}</td></tr>
-          <tr><td class="k">N° Licencia</td><td class="v">${truncate(cliente?.licNumero, 20)}</td></tr>
-          <tr><td class="k">Vto. Licencia</td><td class="v">${fmtFecha(cliente?.licVencimiento)}</td></tr>
-        </table>
-      </div>
-    </div>
-    ` : `
-    <!-- PARTICULAR: fila 1 — Responsable + Términos alquiler -->
-    <div class="grid-2">
-      <div class="blk">
-        <div class="blk-title">Responsable de la Reserva</div>
-        <table>
-          <tr><td class="k">Nombre y Apellido</td><td class="v b">${truncate(cliente?.nombre, 35)}</td></tr>
-          <tr><td class="k">Domicilio</td><td class="v">${truncate(cliente?.domicilio, 38)}</td></tr>
-          <tr><td class="k">DNI / Pasaporte</td><td class="v">${truncate(cliente?.dni, 22)}</td></tr>
-          <tr><td class="k">Nacionalidad</td><td class="v">${truncate(cliente?.nacionalidad, 22)}</td></tr>
-          <tr><td class="k">Teléfono</td><td class="v">${truncate(cliente?.telefono, 22)}</td></tr>
-          <tr><td class="k">Email</td><td class="v">${truncate(cliente?.mail, 32)}</td></tr>
-          <tr><td class="k">N° Licencia</td><td class="v">${truncate(cliente?.licNumero, 22)}</td></tr>
-          <tr><td class="k">Vto. Licencia</td><td class="v">${fmtFecha(cliente?.licVencimiento)}</td></tr>
-          <tr><td class="k">Lugar Emisión</td><td class="v">${truncate(cliente?.licLugarEmision, 22)}</td></tr>
-          <tr><td class="k">Categoría Lic.</td><td class="v">${cliente?.licCategoria || ''}</td></tr>
-        </table>
-      </div>
-      <div class="blk">
-        <div class="blk-title">Términos de Alquiler</div>
-        <table>
-          <tr><td class="k">Lugar entrega</td><td class="v b">${truncate(reserva.lugarEntrega, 28)}</td></tr>
-          <tr><td class="k">Fecha entrega</td><td class="v b">${fmtFecha(reserva.fechaEntrega)}</td></tr>
-          <tr><td class="k">Hora entrega</td><td class="v b">${fmtHora(reserva.horaEntrega)}</td></tr>
-          <tr><td class="k">Lugar devolución</td><td class="v b">${truncate(reserva.lugarDevolucion, 28)}</td></tr>
-          <tr><td class="k">Fecha devolución</td><td class="v b">${fmtFecha(reserva.fechaDevolucion)}</td></tr>
-          <tr><td class="k">Hora devolución</td><td class="v b">${fmtHora(reserva.horaDevolucion)}</td></tr>
-          <tr><td class="k">Tipo km</td><td class="v b">${reserva.tipoKilometraje || 'LIBRE'}</td></tr>
-          <tr><td class="k">Total días</td><td class="v b">${dias}</td></tr>
-          <tr><td class="k">Generó</td><td class="v">${gen}</td></tr>
-          <tr><td class="k">Entrega</td><td class="v">${ent}</td></tr>
-        </table>
-      </div>
-    </div>
-    `}
-
-    <!-- CONDUCTOR ADICIONAL + DATOS VEHÍCULO -->
-    <div class="grid-2">
-      <div class="blk">
-        <div class="blk-title grey">Primer Conductor Adicional</div>
-        <table>
-          <tr><td class="k">Nombre y Apellido</td><td class="v">${truncate(reserva.condAdicNombre, 30) || '—'}</td></tr>
-          <tr><td class="k">Domicilio</td><td class="v">${truncate(reserva.condAdicDomicilio, 32) || '—'}</td></tr>
-          <tr><td class="k">DNI / Pasaporte</td><td class="v">${truncate(reserva.condAdicDni, 22) || '—'}</td></tr>
-          <tr><td class="k">N° Licencia</td><td class="v">${truncate(reserva.condAdicLicNumero, 22) || '—'}</td></tr>
-          <tr><td class="k">Vto. Licencia</td><td class="v">${fmtFecha(reserva.condAdicLicVto) || '—'}</td></tr>
-          <tr><td class="k">Categoría</td><td class="v">${reserva.condAdicLicCategoria || '—'}</td></tr>
-        </table>
-      </div>
-      <div class="blk">
-        <div class="blk-title">Datos del Vehículo en la Entrega</div>
-        <table>
-          <tr><td class="k">Dominio</td><td class="v b">${veh?.dominio || ''}</td></tr>
-          <tr><td class="k">Modelo</td><td class="v b">${truncate(veh?.modelo, 30)}</td></tr>
-          <tr><td class="k">Categoría</td><td class="v">${veh?.categoria || reserva.categoria || ''}</td></tr>
-          <tr><td class="k">Kilometraje</td><td class="v">${reserva.kmEntrega ? reserva.kmEntrega.toLocaleString('es-AR') + ' km' : '—'}</td></tr>
-          <tr><td class="k">Combustible</td><td class="v">${truncate(reserva.combustible, 22)}</td></tr>
-          <tr><td class="k">Estado Limpieza</td><td class="v b" style="text-transform:uppercase;">${reserva.estadoVehiculo || '—'}</td></tr>
-          <tr><td class="k">Vto. Póliza</td><td class="v">&nbsp;</td></tr>
-        </table>
-      </div>
-    </div>
-
-    <!-- GARANTÍA + ADICIONALES Y CARGOS -->
-    <div class="grid-2">
-      <div class="blk">
-        <div class="blk-title red">Garantía</div>
-        <table>
-          <tr><td class="k">N° Tarjeta</td><td class="v">${truncate(reserva.tarjetaNumero, 24)}</td></tr>
-          <tr><td class="k">Tipo</td><td class="v">${reserva.tarjetaTipo || ''}</td></tr>
-          <tr><td class="k">Titular</td><td class="v">${truncate(reserva.tarjetaNombre, 28)}</td></tr>
-          <tr><td class="k">Vencimiento</td><td class="v">${reserva.tarjetaVto || ''}</td></tr>
-          <tr><td class="k">Franquicia</td><td class="v b">${fmt.money(reserva.franquicia || 0)}</td></tr>
-          <tr><td class="k">N° Preautorización</td><td class="v">${truncate(reserva.preAutorizacionNumero, 20)}</td></tr>
-        </table>
-      </div>
-      <div class="blk">
-        <div class="blk-title">Adicionales y Cargos</div>
-        <table>
-          ${itemsRows}
-          ${extraRow}
-        </table>
-      </div>
-    </div>
-
-    <!-- ADVERTENCIAS + FACTURACIÓN -->
-    <div class="grid-2">
-      <div class="blk">
-        <div class="blk-title red">Advertencias</div>
-        <div class="adv-inner">
-          <div class="adv-item">· Respetar todas las normas de tránsito vigentes.</div>
-          <div class="adv-item">· Utilizar cinturón de seguridad en todo momento.</div>
-          <div class="adv-item">· No utilizar dispositivos móviles durante la conducción.</div>
-          <div class="adv-item">· No conducir bajo efectos de alcohol, drogas o medicación.</div>
-          <div class="adv-item">· El vehículo no podrá salir de la zona autorizada sin consentimiento.</div>
-          ${reserva.observaciones ? `<div class="adv-obs"><strong>Observación:</strong> ${reserva.observaciones}</div>` : ''}
-        </div>
-      </div>
-      <div class="blk">
-        <div class="blk-title">Detalles de Facturación</div>
-        <table>
-          <tr><td class="k">Valor del Alquiler</td><td class="v b">${fmt.money(reserva.montoTotal || 0)}</td></tr>
-          <tr><td class="k">Adicionales</td><td class="v b">${fmt.money(totalAdic)}</td></tr>
-          <tr><td class="k" style="background:#FDE68A;color:#111;">TOTAL</td><td class="v b" style="background:#FDE68A;">${fmt.money(total)}</td></tr>
-          <tr><td class="k">Método de Pago</td><td class="v">${reserva.metodoPago || 'CRÉDITO'}</td></tr>
-          <tr><td class="k">Abonado</td><td class="v">${fmt.money(reserva.montoAbonado || 0)}</td></tr>
-          <tr><td class="k">Saldo</td><td class="v b">${fmt.money(Math.max(0, total - (reserva.montoAbonado||0)))}</td></tr>
-        </table>
-      </div>
-    </div>
-
-    <!-- CIERRE DE CONTRATO -->
-    <div class="blk">
-      <div class="blk-title">Cierre de Contrato</div>
-      <div class="cierre-inner">
-        <table>
-          <tr><td class="k">Lugar Devolución</td><td class="v" style="min-width:80px;"></td></tr>
-          <tr><td class="k">Fecha Devolución</td><td class="v"></td></tr>
-          <tr><td class="k">Hora Devolución</td><td class="v"></td></tr>
-        </table>
-        <table>
-          <tr><td class="k">KM Recorrido</td><td class="v"></td></tr>
-          <tr><td class="k">Estado Limpieza</td><td class="v"></td></tr>
-          <tr><td class="k">Nivel Combustible</td><td class="v"></td></tr>
-        </table>
-      </div>
-    </div>
-
-  </div><!-- /section -->
-
-  <!-- LEGAL -->
-  <div class="legal">
-    <strong>OBSERVACIONES:</strong> Esta unidad cuenta con TelePASE habilitado para autopistas de CABA y otras jurisdicciones. Al momento de la devolución, se verificará su uso y se cobrará el importe correspondiente a los peajes utilizados. Este cargo no está incluido en la tarifa de alquiler. El cliente será notificado en un plazo de hasta 48 horas para coordinar el pago. Si no se recibe respuesta dentro de ese plazo, el monto será debitado automáticamente de la tarjeta de crédito registrada, con un recargo del 30% por gastos administrativos.
-    HE LEÍDO LOS TÉRMINOS Y CONDICIONES DE ESTE DOCUMENTO Y CONTRATO DE ALQUILER QUE SE DETALLA AL DORSO, EL CUAL ME HA SIDO ENTREGADO EN ESTE ACTO Y ESTOY DE ACUERDO EN TODO CON EL MISMO. HE VERIFICADO EL CORRECTO ESTADO Y FUNCIONAMIENTO DEL VEHÍCULO QUE RECIBO Y DECLARO ESTAR DE ACUERDO. ACEPTO EL CARGO DE MI TARJETA DE CRÉDITO POR LOS DAÑOS CAUSADOS HASTA EL MONTO DE LA FRANQUICIA. EN CASO DE NEGLIGENCIA O FALTAS A LEYES DE TRÁNSITO, ACEPTO EL CARGO POR LA TOTALIDAD DE LOS COSTOS DE REPARACIÓN MÁS UN 30% DE GASTOS ADMINISTRATIVOS.
-  </div>
-
-  <!-- FIRMAS -->
-  <div class="firmas-wrap">
-    <div class="firma-row cols3">
-      <div>FIRMA</div>
-      <div>ACLARACIÓN</div>
-      <div>DNI / PASAPORTE</div>
-    </div>
-    <div class="conductor-adic-label">Conductor Adicional:</div>
-    <div class="firma-row cols3">
-      <div>FIRMA</div>
-      <div>ACLARACIÓN</div>
-      <div>DNI / PASAPORTE</div>
-    </div>
-  </div>
-
-  <div class="footer-info">
-    IVA: ${e.condicionIVA} · CUIT: ${e.cuit}
+  <div class="hl"><img src="data:image/webp;base64,${LOGO_B64}" alt="VDP"/></div>
+  <div class="hr">
+    <div class="cn"><div class="cl">CONTRATO N°</div><div class="cv">${(reserva.codigo||'----').toString().padStart(4,'0')}</div></div>
+    <div class="rb">CARGUE COMBUSTIBLE PREMIUM<br>TOLANCIA DE ESPERA 1 HORA<br>LAVADO NO INCLUÍDO</div>
   </div>
 </div>
 
-<!-- ============ DORSO ============ -->
-<div class="page-back">
-  <div class="watermark"><img src="data:image/webp;base64,${LOGO_B64}" alt=""/></div>
+<div class="body">
 
-  <div class="terms-page">
-    <h1>Contrato de Arrendamiento</h1>
-    <h2>CLÁUSULAS — POR FAVOR LEER ATENTAMENTE</h2>
-    <p>El presente contrato se celebra entre la compañía <strong>${e.razonSocial}</strong>, quien en adelante se llamará LA ARRENDADORA, y el cliente quien lo firma, que en adelante se denominará EL ARRENDATARIO, y se regirá por las siguientes cláusulas:</p>
-    <p><strong>1)</strong> El Arrendatario sabe que el vehículo que se le entrega en alquiler es de propiedad de la Arrendadora y está de acuerdo con ello.</p>
-    <p><strong>2)</strong> El Arrendatario nunca podrá considerarse como empleado de la Arrendadora ni como persona que pueda actuar en representación de la Arrendadora.</p>
-    <p><strong>3)</strong> El Arrendatario declara haber recibido el vehículo en perfecto estado de funcionamiento y a su entera satisfacción junto con sus llantas, herramientas y accesorios y se compromete a devolverlo en iguales condiciones, en el lugar, fecha y hora especificados, o antes, si la Arrendadora lo exige.</p>
-    <p><strong>4)</strong> El Arrendatario se obliga a pagar a la Arrendadora el valor de todo el tiempo, el kilometraje y otros cargos aplicables a este contrato, con las tarifas aquí especificadas, en el momento de la terminación de este contrato.</p>
-    <p><strong>5)</strong> Para garantizar el cumplimiento, el arrendatario deja depósitos de garantías. Si deja comprobantes de Tarjetas de Crédito firmados en blanco, autoriza expresamente a la Arrendadora para llenarlo y cobrarlo en cualquier momento sin previo aviso. Si deja Títulos Valores, también podrán cobrarse sin previo aviso. El Arrendatario se obliga a pagar de inmediato el monto total causado por el contrato.</p>
-    <p><strong>6)</strong> El Arrendatario se obliga a no conducir el vehículo: bajo influencia de estupefacientes o embriaguez; transportando pasajeros cobrando pasajes o fletes; en pruebas de velocidad; en violación de normas de tránsito; remolcando otro vehículo; en actividades ilícitas; transportando más pasajeros de los establecidos.</p>
-    <p><strong>7)</strong> Durante el contrato el Arrendatario queda amparado por la Póliza de Seguro suscrita entre la Arrendadora y la Compañía de Seguros. La cobertura no incluye vidrios, estéreos, neumáticos ni factores climáticos.</p>
-    <p><strong>8)</strong> En caso de accidente, el Arrendatario debe: formular denuncia policial; informar pormenorizadamente a la Arrendadora; no aceptar culpabilidad ni hacer arreglos con terceros; prestar colaboración en el manejo del accidente.</p>
-    <p><strong>9)</strong> La Arrendadora ofrece la opción de contratar Póliza de Accidentes Personales según las condiciones del folleto explicativo.</p>
-    <p><strong>10)</strong> El Arrendatario no podrá dar por terminado unilateralmente este contrato. Son causales de terminación: la expiración del término pactado y el incumplimiento de cualquier condición.</p>
-    <p><strong>11)</strong> La Arrendadora no se hace responsable por pérdida o daño de objetos que el Arrendatario o pasajeros dejaren o transportaren en el vehículo.</p>
-    <p><strong>12)</strong> El arrendatario declara haber recibido el vehículo con todos los equipos en perfecto estado. Por lo tanto, pagará el valor de todo daño mecánico, robo parcial y averías que no sean cubiertas por la Póliza.</p>
-    <p><strong>13)</strong> Las reparaciones de daños o averías se harán en la forma y taller que indique la Arrendadora.</p>
-    <p><strong>14)</strong> Si hubiera pérdida total y la Aseguradora se negare a pagarlo, el Arrendatario se obliga a pagar de inmediato el valor comercial del vehículo fijado por la Arrendadora.</p>
-    <p><strong>15)</strong> El Arrendatario será responsable de los daños causados a cosa ajena o terceras personas no cubiertos por el seguro, incluyendo el valor de las indemnizaciones por perjuicios.</p>
-    <p><strong>16)</strong> El Arrendatario pagará la indemnización por lucro cesante por los días que dure el vehículo en reparación debido a daños mecánicos por mal trato o descuido.</p>
-    <p><strong>17)</strong> Si el vehículo es retenido por autoridad por causas imputables al Arrendatario, serán a su cargo el servicio de grúa, multas y gestiones para lograr la devolución.</p>
-    <p><strong>18)</strong> En caso de violación del cuenta-kilómetros, el Arrendatario pagará un recorrido equivalente a 500 km por día o fracción durante el tiempo del contrato.</p>
-    <p><strong>19)</strong> El Arrendatario se hace responsable de las multas, penas y sanciones por violación de leyes de tránsito que recaigan sobre el vehículo durante el tiempo de uso.</p>
-    <p><strong>20)</strong> La Arrendadora proporcionará servicios mecánicos mientras el vehículo esté en la ciudad de alquiler. Para reparaciones urgentes en otra ciudad, requiere autorización previa.</p>
-    <p><strong>21)</strong> La violación de cualquier cláusula dará lugar a la terminación inmediata del contrato y la Arrendadora podrá retirar el vehículo del lugar donde se encuentre.</p>
-    <p><strong>22)</strong> Si después de recibido el vehículo surgiere reclamación de las autoridades, el Arrendatario responderá por la violación cometida durante el tiempo de uso.</p>
-    <p><strong>23)</strong> Para todo lo relacionado con este contrato, las partes se someten a la jurisdicción de los tribunales competentes del domicilio del Arrendatario o de los Tribunales ordinarios de la Ciudad de Buenos Aires, a elección de la Arrendadora.</p>
-
-    <div class="terms-firma">
-      <div class="row">
-        <div class="lbl">Fecha:</div>
-        <div class="ln"></div>
-      </div>
-      <div class="firma-line">
-        <div>FIRMA</div>
-        <div>ACLARACIÓN</div>
-        <div>DNI / PASAPORTE</div>
-      </div>
-    </div>
+<div class="cl">
+  <table>
+    <tr><td class="bh" colspan="4">Responsable de la Reserva</td></tr>
+    <tr>
+      <td class="k4" style="width:22%;">EMPRESA</td>
+      <td class="v4" style="width:38%;">${truncate(tipoReserva==='Empresa'?(empresaObj?.empresa||reserva.empresaCliente||''):'',28)}</td>
+      <td class="k4" style="width:14%;">CUIT</td>
+      <td class="v4" style="width:26%;">${tipoReserva==='Empresa'?(empresaObj?.cuit||''):''}</td>
+    </tr>
+    <tr>
+      <td class="k4">DIRECCIÓN</td>
+      <td class="v4">${truncate(tipoReserva==='Empresa'?(empresaObj?.direccion||''):'',28)}</td>
+      <td class="k4">TELÉFONO</td>
+      <td class="v4">${tipoReserva==='Empresa'?(empresaObj?.telefono||''):''}</td>
+    </tr>
+    <tr><td class="bh sub" colspan="4">Conductor Asignado</td></tr>
+    <tr><td class="k4">NOMBRE Y APELLIDO</td><td class="vb" colspan="3">${truncate(cliente?.nombre,36)}</td></tr>
+    <tr><td class="k4">DOMICILIO</td><td class="v4" colspan="3">${truncate(cliente?.domicilio,36)}</td></tr>
+    <tr><td class="k4">DNI / PASAPORTE</td><td class="v4" colspan="3">${truncate(cliente?.dni,20)}</td></tr>
+    <tr><td class="k4">NACIONALIDAD</td><td class="v4" colspan="3">${truncate(cliente?.nacionalidad,20)}</td></tr>
+    <tr><td class="k4">TELÉFONO</td><td class="v4" colspan="3">${truncate(cliente?.telefono,22)}</td></tr>
+    <tr><td class="k4">EMAIL</td><td class="v4" colspan="3">${truncate(cliente?.mail,30)}</td></tr>
+    <tr><td class="k4">N° DE LICENCIA</td><td class="v4" colspan="3">${truncate(cliente?.licNumero,20)}</td></tr>
+    <tr><td class="k4">VENCIMIENTO</td><td class="v4" colspan="3">${fmtFecha(cliente?.licVencimiento)}</td></tr>
+  </table>
+  <table class="nb">
+    <tr><td class="bh grey" colspan="4">Primer Conductor Adicional</td></tr>
+    <tr><td class="k4" style="width:36%;">NOMBRE Y APELLIDO</td><td class="vb" colspan="3">${truncate(reserva.condAdicNombre,30)||'&nbsp;'}</td></tr>
+    <tr><td class="k4">DOMICILIO</td><td class="v4" colspan="3">${truncate(reserva.condAdicDomicilio,30)||'&nbsp;'}</td></tr>
+    <tr><td class="k4">DNI / PASAPORTE</td><td class="v4" colspan="3">${truncate(reserva.condAdicDni,18)||'&nbsp;'}</td></tr>
+    <tr><td class="k4">N° DE LICENCIA</td><td class="v4" colspan="3">${truncate(reserva.condAdicLicNumero,18)||'&nbsp;'}</td></tr>
+    <tr><td class="k4">VENCIMIENTO</td><td class="v4" colspan="3">${fmtFecha(reserva.condAdicLicVto)||'&nbsp;'}</td></tr>
+  </table>
+  <table class="nb">
+    <tr><td class="bh red" colspan="4">Garantía</td></tr>
+    <tr><td class="k4" style="width:36%;">N° DE TARJETA</td><td class="v4" colspan="3" style="font-family:monospace;letter-spacing:1px;">${tarjetaMasked}</td></tr>
+    <tr>
+      <td class="k4">TIPO</td><td class="v4">${reserva.tarjetaTipo||'&nbsp;'}</td>
+      <td class="k4" style="width:22%;">NOMBRE</td><td class="v4">${truncate(reserva.tarjetaNombre,14)||'&nbsp;'}</td>
+    </tr>
+    <tr>
+      <td class="k4">VENCIMIENTO</td><td class="v4">${reserva.tarjetaVto||'&nbsp;'}</td>
+      <td class="k4">FRANQUICIA</td><td class="vb">${fmt.money(reserva.franquicia||0)}</td>
+    </tr>
+    <tr><td class="k4">N° PREAUTORIZACIÓN</td><td class="v4" colspan="3">${truncate(reserva.preAutorizacionNumero,22)||'&nbsp;'}</td></tr>
+  </table>
+  <table class="nb"><tr><td class="bh red">Advertencias</td></tr></table>
+  <div class="adv">
+    <div class="ai">· Respetar todas las normas de tránsito vigentes.</div>
+    <div class="ai">· Utilizar cinturón de seguridad en todo momento.</div>
+    <div class="ai">· No utilizar dispositivos móviles durante la conducción.</div>
+    <div class="ai">· No conducir bajo efectos de alcohol, drogas o medicación que altere la capacidad.</div>
+    <div class="ai">· No utilizar el vehículo para transporte de pasajeros o cargas con fines comerciales no autorizados.</div>
+    <div class="ai">· El vehículo no podrá salir de la zona/región autorizada sin previo consentimiento de la arrendadora.</div>
+    ${reserva.observaciones?`<div style="font-size:6.8px;color:#444;font-weight:400;margin-top:1px;"><strong>Obs:</strong> ${reserva.observaciones}</div>`:''}
   </div>
+  <table class="nb">
+    <tr><td class="bh" colspan="4">Cierre de Contrato</td></tr>
+    <tr>
+      <td class="k4" style="width:28%;">LUGAR DEVOLUCIÓN</td><td class="v4" style="height:13px;width:22%;"></td>
+      <td class="k4" style="width:26%;">KM RECORRIDO</td><td class="v4"></td>
+    </tr>
+    <tr><td class="k4">FECHA DEVOLUCIÓN</td><td class="v4"></td><td class="k4">ESTADO LIMPIEZA</td><td class="v4"></td></tr>
+    <tr><td class="k4">HORA DEVOLUCIÓN</td><td class="v4"></td><td class="k4">NIVEL COMBUSTIBLE</td><td class="v4"></td></tr>
+  </table>
 </div>
 
-<script>
-  setTimeout(() => { try { window.print(); } catch(e){} }, 800);
-<\/script>
+<div class="cr">
+  <table>
+    <tr><td class="bh" colspan="2">Términos de Alquiler</td></tr>
+    <tr><td class="k">LUGAR DE ENTREGA</td><td class="vb">${truncate(reserva.lugarEntrega,26)}</td></tr>
+    <tr><td class="k">FECHA DE ENTREGA</td><td class="vb">${fmtFecha(reserva.fechaEntrega)}</td></tr>
+    <tr><td class="k">HORA DE ENTREGA</td><td class="vb">${fmtHora(reserva.horaEntrega)}</td></tr>
+    <tr><td class="k">LUGAR DE DEVOLUCIÓN</td><td class="vb">${truncate(reserva.lugarDevolucion,26)}</td></tr>
+    <tr><td class="k">FECHA DE DEVOLUCIÓN</td><td class="vb">${fmtFecha(reserva.fechaDevolucion)}</td></tr>
+    <tr><td class="k">HORA DE DEVOLUCIÓN</td><td class="vb">${fmtHora(reserva.horaDevolucion)}</td></tr>
+    <tr><td class="k">TIPO DE KILOMETRAJE</td><td class="vb">${reserva.tipoKilometraje||'LIBRE'}</td></tr>
+    <tr><td class="k">TOTAL DE DÍAS</td><td class="vb">${dias}</td></tr>
+    <tr><td class="k">OBSERVACIÓN</td><td class="v">${truncate(reserva.observaciones,26)}&nbsp;</td></tr>
+  </table>
+  <table>
+    <tr><td class="bh" colspan="2">Datos del Vehículo en la Entrega</td></tr>
+    <tr><td class="k">DOMINIO</td><td class="vb">${veh?.dominio||''}</td></tr>
+    <tr><td class="k">MODELO</td><td class="vb">${truncate(veh?.modelo,26)}</td></tr>
+    <tr><td class="k">CATEGORÍA</td><td class="v">${veh?.categoria||''}</td></tr>
+    <tr><td class="k">KILOMETRAJE</td><td class="v">${reserva.kmEntrega?Number(reserva.kmEntrega).toLocaleString('es-AR')+' km':'&nbsp;'}</td></tr>
+    <tr><td class="k">COMBUSTIBLE</td><td class="v">${reserva.combustible||'&nbsp;'}</td></tr>
+    <tr><td class="k">ESTADO LIMPIEZA</td><td class="vb" style="text-transform:uppercase;">${reserva.estadoVehiculo||'&nbsp;'}</td></tr>
+    <tr><td class="k">VENCIMIENTO DE PÓLIZA</td><td class="v">&nbsp;</td></tr>
+  </table>
+  <table>
+    <tr><td class="bh" colspan="2">Adicionales y Cargos</td></tr>
+    ${chargesData.map(c=>`<tr><td class="k">${truncate(c.nombre,22)}</td><td class="v">${c.valor}</td></tr>`).join('')}
+    ${addsData.map(a=>`<tr><td class="k">${truncate(a.nombre,22)}</td><td class="v">${a.valor}</td></tr>`).join('')}
+  </table>
+  <table>
+    <tr><td class="bh" colspan="2">Detalles de Facturación</td></tr>
+    <tr><td class="k">VALOR DEL ALQUILER</td><td class="vb">${fmt.money(reserva.montoTotal||0)}</td></tr>
+    <tr><td class="k">ADICIONALES (${(reserva.adicionales||[]).length})</td><td class="vb">${fmt.money(totalAdic)}</td></tr>
+    <tr><td class="tk">TOTAL</td><td class="tv">${fmt.money(total)}</td></tr>
+    <tr><td class="k">MÉTODO DE PAGO</td><td class="v">${reserva.metodoPago||'—'}</td></tr>
+    <tr><td class="k">ABONADO</td><td class="v">${fmt.money(reserva.montoAbonado||0)}</td></tr>
+    <tr><td class="k">SALDO</td><td class="vb">${fmt.money(Math.max(0,total-(reserva.montoAbonado||0)))}</td></tr>
+  </table>
+</div>
+
+</div>
+
+<div class="legal">
+  <strong>OBSERVACIONES:</strong> Esta unidad cuenta con TelePASE habilitado para autopistas de CABA y otras jurisdicciones. Al momento de la devolución, se verificará su uso y se cobrará el importe correspondiente a los peajes utilizados. Este cargo no está incluido en la tarifa de alquiler. El cliente será notificado en un plazo de hasta 48 horas para coordinar el pago. Si no se recibe respuesta dentro de ese plazo, el monto será debitado automáticamente de la tarjeta de crédito registrada, con un recargo del 30% por gastos administrativos.
+  HE LEÍDO LOS TÉRMINOS Y CONDICIONES DE ESTE DOCUMENTO Y CONTRATO DE ALQUILER QUE SE DETALLA AL DORSO, EL CUAL ME HA SIDO ENTREGADO EN ESTE ACTO Y ESTOY DE ACUERDO EN TODO CON EL MISMO. HE VERIFICADO EL CORRECTO ESTADO Y FUNCIONAMIENTO DEL VEHÍCULO QUE RECIBO Y DECLARO ESTAR DE ACUERDO. ACEPTO EL CARGO DE MI TARJETA DE CRÉDITO POR LOS DAÑOS CAUSADOS HASTA EL MONTO DE LA FRANQUICIA. EN CASO DE NEGLIGENCIA O FALTAS A LEYES DE TRÁNSITO, ACEPTO EL CARGO POR LA TOTALIDAD DE LOS COSTOS DE REPARACIÓN MÁS UN 30% DE GASTOS ADMINISTRATIVOS.
+</div>
+<div style="flex-shrink:0;margin-top:3px;">
+  <div class="frow"><div>FIRMA</div><div>ACLARACIÓN</div><div>DNI / PASAPORTE</div></div>
+  <div class="flbl">Conductor Adicional:</div>
+  <div class="frow"><div>FIRMA</div><div>ACLARACIÓN</div><div>DNI / PASAPORTE</div></div>
+</div>
+<div class="fiva">IVA: ${e.condicionIVA} · CUIT: ${e.cuit}</div>
+</div>
+
+<div class="back"><div class="terms">
+  <h1>Contrato de Arrendamiento</h1>
+  <h2>CLÁUSULAS — POR FAVOR LEER ATENTAMENTE</h2>
+  <p>El presente contrato se celebra entre la compañía <strong>${e.razonSocial}</strong>, quien en adelante se llamará LA ARRENDADORA, y el cliente quien lo firma, que en adelante se denominará EL ARRENDATARIO, y se regirá por las siguientes cláusulas:</p>
+  <p><strong>1)</strong> El Arrendatario sabe que el vehículo que se le entrega en alquiler es de propiedad de la Arrendadora y está de acuerdo con ello.</p>
+  <p><strong>2)</strong> El Arrendatario nunca podrá considerarse como empleado de la Arrendadora ni como persona que pueda actuar en representación de la Arrendadora.</p>
+  <p><strong>3)</strong> El Arrendatario declara haber recibido el vehículo en perfecto estado de funcionamiento y a su entera satisfacción junto con sus llantas, herramientas y accesorios y se compromete a devolverlo en iguales condiciones, en el lugar, fecha y hora especificados, o antes, si la Arrendadora lo exige.</p>
+  <p><strong>4)</strong> El Arrendatario se obliga a pagar a la Arrendadora el valor de todo el tiempo, el kilometraje y otros cargos aplicables a este contrato y liquidados por la Arrendadora, con las tarifas aquí especificadas, en el momento de la terminación de este contrato.</p>
+  <p><strong>5)</strong> Para garantizar el cumplimiento de este contrato y las obligaciones en él contraídas, el arrendatario deja dos depósitos de garantías señalados en el casillero 19 del frente: a) Si el arrendatario deja como depósito garantía comprobantes de Tarjetas de Crédito firmados en blanco, autoriza expresamente a la Arrendadora para llenarlo y cobrarlo en cualquier momento sin previo aviso. b) Si el Arrendatario deja como depósito de garantías Títulos Valores, la Arrendadora también podrá cobrarlos en cualquier momento y sin previo aviso, para cancelar las sumas a cargo del Arrendatario. c) El Arrendatario se obliga a pagar de inmediato a la Arrendadora el monto total causado por este contrato.</p>
+  <p><strong>6)</strong> El Arrendatario se obliga a no conducir el vehículo en las siguientes circunstancias: a) Bajo influencia de estupefacientes o en estado de embriaguez; b) Trasportando personas cobrando pasajes o fletes; c) En cualquier prueba de velocidad o carrera de competencia; d) En violación de las normas o los reglamentos de tránsito; e) Remolcando otro vehículo; f) En cualquier actividad ilícita; g) Transportando más pasajeros de los establecidos por la clase de vehículo alquilado.</p>
+  <p><strong>7)</strong> Durante el término del presente contrato el Arrendatario queda amparado por la Póliza de Seguro suscrita entre la Arrendadora y la Compañía de Seguros cuyas cláusulas acepta expresamente. La Cobertura de la Póliza de seguro no incluye, vidrios, estéreos, neumáticos, ni factores climáticos (temporal, inundación, granizo, etc.).</p>
+  <p><strong>8)</strong> En caso de accidente, el Arrendatario se compromete a: a) Formular la denuncia ante la autoridad policial correspondiente; b) Dar un informe pormenorizado del accidente a la Arrendadora; c) No aceptar culpabilidad en el mismo, ni hacer ningún tipo de arreglo con los terceros; d) Prestar toda la colaboración necesaria a la Arrendadora y a la compañía de Seguros en el manejo e investigación del accidente.</p>
+  <p><strong>9)</strong> La Arrendadora ofrece al Arrendatario una opción: La contratación de una Póliza de Accidentes Personales que se rige de acuerdo a las condiciones y coberturas que se indican en el folleto explicativo y en la misma póliza.</p>
+  <p><strong>10)</strong> El Arrendatario no podrá dar por terminado unilateralmente este contrato, pero la Arrendadora sí. Son causales especiales de terminación de este contrato: a) La expiración del término pactado, y el incumplimiento por parte del Arrendatario de cualquiera de las condiciones estipuladas en este documento.</p>
+  <p><strong>11)</strong> La Arrendadora no se hace responsable por pérdida o daño de cualquier objeto que el Arrendatario o algún pasajero dejare o transportare en el vehículo durante el tiempo de contrato o después de su expiración.</p>
+  <p><strong>12)</strong> El Arrendatario declara haber recibido el vehículo con todos los equipos e instrumentos de control en perfecto estado de funcionamiento. Por lo tanto, el Arrendatario pagará a la Arrendadora el valor de todo daño mecánico, robo parcial y averías por accidentes que no sean cubiertas por la Póliza de seguro.</p>
+  <p><strong>13)</strong> Las reparaciones de los daños o averías que por cualquier circunstancia sufra el vehículo, se harán en la forma y en el taller que indique la Arrendadora.</p>
+  <p><strong>14)</strong> Si hubiera pérdida total del vehículo por accidente, robo, hurto u otra causa y la Compañía Aseguradora se negare a pagarlo, el Arrendatario se obliga a pagar de inmediato a la Arrendadora el valor comercial del vehículo fijado por esta.</p>
+  <p><strong>15)</strong> El Arrendatario será responsable de los daños causados con el vehículo en cosa ajena o a terceras personas que no cubra la Póliza de Seguros, siendo también de su cargo el valor de las indemnizaciones por los perjuicios ocasionados.</p>
+  <p><strong>16)</strong> El Arrendatario queda obligado a pagar a la Arrendadora la indemnización por lucro cesante que se ocasionare por los días que dure el vehículo en reparación debido a los daños mecánicos por mal trato o descuido en el manejo ocasionados por el Arrendatario.</p>
+  <p><strong>17)</strong> En caso de ser retenido el vehículo por cualquier autoridad competente debido a causas imputables al Arrendatario, serán de su cargo el servicio de grúa, multas, etc. Y las gestiones necesarias para lograr la devolución del vehículo.</p>
+  <p><strong>18)</strong> En caso de violación comprobada del reloj kilómetros, el Arrendatario deberá pagar un recorrido equivalente a 500 kilómetros por día o fracción de día durante el tiempo que hubiere tenido el vehículo en su poder.</p>
+  <p><strong>19)</strong> El Arrendatario se hace responsable de las multas, penas y sanciones por violación de la ley y/o disposiciones de tránsito que recaigan sobre el vehículo o su conductor y cometidas durante el tiempo que lo tuvo bajo su responsabilidad.</p>
+  <p><strong>20)</strong> La Arrendadora proporcionará servicios mecánicos y mantenimiento mientras el vehículo se encuentre en la ciudad donde el vehículo fue alquilado. Cuando el vehículo es alquilado para viajar a otra ciudad y estado fuera de la ciudad donde se alquila requiere una reparación urgente, el Arrendatario puede, previa autorización de la Arrendadora, ordenar dicho arreglo.</p>
+  <p><strong>21)</strong> La violación por parte del Arrendatario de cualquiera de las cláusulas de este contrato o por parte de alguna, dará lugar a la terminación inmediata del contrato y la Arrendadora queda autorizada para retirar el vehículo del lugar donde se encuentre.</p>
+  <p><strong>22)</strong> Si después de recibido el vehículo por la Arrendadora y liquidado el contrato surgiere alguna reclamación del vehículo por las autoridades, el Arrendatario responderá ante las mismas por la violación que pese sobre el vehículo cometida durante el tiempo que lo tuvo bajo su responsabilidad.</p>
+  <p><strong>23)</strong> Para todo lo relacionado con este contrato, las partes se someten a la jurisdicción de los tribunales competentes del domicilio constituido por el Arrendatario en el ítem 2) "Dirección Actual", del anverso. O de los Tribunales ordinarios de la Ciudad de Buenos Aires (Capital Federal), Argentina, a elección de la Arrendadora.</p>
+  <div class="ctrl">
+    <div class="ct">CONTROL DEL VEHÍCULO</div>
+    <div class="cs">Inspección previa a la entrega sobre la integridad del vehículo a alquilar, en conjunto con el colaborador de la empresa</div>
+    <div class="clg">Indique en la ilustración del vehículo los siguientes indicadores en caso de corresponder.&nbsp;&nbsp; <strong>Rayón ———</strong>&nbsp;&nbsp; <strong>Bollo O</strong>&nbsp;&nbsp; <strong>Rotura X</strong></div>
+    <div class="csv">
+      <svg viewBox="0 0 500 165" xmlns="http://www.w3.org/2000/svg" style="max-width:140mm;height:42mm;">
+        <rect x="28" y="96" width="444" height="42" rx="10" fill="none" stroke="#333" stroke-width="2"/>
+        <path d="M128 96 Q153 50 198 42 L302 42 Q347 50 372 96Z" fill="none" stroke="#333" stroke-width="2"/>
+        <path d="M302 44 Q342 57 370 94" fill="none" stroke="#333" stroke-width="1.5"/>
+        <path d="M198 44 Q158 57 130 94" fill="none" stroke="#333" stroke-width="1.5"/>
+        <circle cx="378" cy="138" r="24" fill="none" stroke="#333" stroke-width="2"/>
+        <circle cx="378" cy="138" r="10" fill="none" stroke="#333" stroke-width="1.5"/>
+        <circle cx="122" cy="138" r="24" fill="none" stroke="#333" stroke-width="2"/>
+        <circle cx="122" cy="138" r="10" fill="none" stroke="#333" stroke-width="1.5"/>
+        <rect x="462" y="102" width="20" height="13" rx="3" fill="none" stroke="#333" stroke-width="1.5"/>
+        <rect x="18"  y="102" width="20" height="13" rx="3" fill="none" stroke="#333" stroke-width="1.5"/>
+        <line x1="250" y1="96" x2="250" y2="134" stroke="#bbb" stroke-width="1" stroke-dasharray="3,2"/>
+        <rect x="8"   y="110" width="14" height="8" rx="2" fill="none" stroke="#444" stroke-width="1"/>
+        <rect x="478" y="110" width="14" height="8" rx="2" fill="none" stroke="#444" stroke-width="1"/>
+        <rect x="393" y="116" width="16" height="5" rx="2" fill="none" stroke="#888" stroke-width="1"/>
+        <rect x="91"  y="116" width="16" height="5" rx="2" fill="none" stroke="#888" stroke-width="1"/>
+      </svg>
+    </div>
+    <div class="cck">
+      <div class="cct">CHECKLIST A COMPLETAR</div>
+      <div class="chr">
+        <div class="chi">Documentación del vehículo <span class="chb"></span></div>
+        <div class="chi">Rueda de auxilio <span class="chb"></span></div>
+        <div class="chi">Criket <span class="chb"></span></div>
+        <div class="chi">Matafuegos <span class="chb"></span></div>
+      </div>
+      <div class="chr" style="margin-top:3px;">
+        <div class="chi">Balizas <span class="chb"></span></div>
+        <div class="chi">Accesorios <span class="chb"></span></div>
+      </div>
+    </div>
+    <div class="cno">Este formulario deja asentado con consentimiento del arrendatario el estado del vehículo previo al inicio de la reserva, al finalizar se repasan estos puntos corroborando integridad y existencia de los ítems mencionados.</div>
+    <div class="cob">Observaciones:&nbsp;</div>
+  </div>
+  <div class="tf">
+    <div class="tff"><strong>Fecha:</strong><div class="ln"></div></div>
+    <div class="fl"><div>FIRMA DEL COLABORADOR</div><div></div><div>NOMBRE DEL COLABORADOR</div></div>
+    <div class="fl" style="margin-top:10mm;"><div>FIRMA</div><div>ACLARACIÓN</div><div>DNI / PASAPORTE</div></div>
+  </div>
+</div></div>
+
+<script>setTimeout(()=>{try{window.print();}catch(e){}},800);<\/script>
 </body></html>`;
 
       const win = window.open('', '_blank');
@@ -7052,3 +6852,4 @@
   </script>
 </body>
 </html>
+
