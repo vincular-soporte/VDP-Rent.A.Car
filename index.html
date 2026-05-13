@@ -1820,7 +1820,7 @@
 
     /* === TABLET (≤ 900px) — Sidebar sigue visible y fijo === */
     @media (max-width: 900px) {
-      /* Sidebar siempre visible: NO se colapsa */
+      /* Sidebar sigue visible en tablet */
       .sidebar { width: 200px; }
       .menu-toggle { display: none; }
 
@@ -1991,8 +1991,23 @@
       .cal-day .dnum { font-size: 11px; }
       .cal-month-block { font-size: 11.5px; padding: 3px 5px; }
 
-      /* === SIDEBAR ANCHO COMPLETO === */
-      .sidebar { width: 88vw; max-width: 320px; }
+      /* === SIDEBAR: OVERLAY DESLIZANTE EN MOBILE === */
+      .app { grid-template-columns: 1fr; } /* sin columna de sidebar */
+      .sidebar {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        width: 88vw; max-width: 320px;
+        z-index: 50;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        box-shadow: none;
+      }
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 4px 0 24px rgba(0,0,0,0.18);
+      }
+      .sidebar-backdrop.open { display: block; }
+      .menu-toggle { display: flex !important; }
       .sidebar-section-title { font-size: 10px; }
       .nav-item { padding: 11px 14px; font-size: 14px; }
       .nav-item svg { width: 18px; height: 18px; }
@@ -3848,6 +3863,7 @@
       $('topCrumb').textContent = meta.crumb;
       $('topTitle').textContent = meta.title;
       $('sidebar').classList.remove('open');
+      try { $('sidebarBackdrop').classList.remove('open'); } catch(e){}
 
       if (sectionId === 'dashboard') { renderStats(); renderCalendar(); }
       if (sectionId === 'reservas') renderReservas();
@@ -3864,8 +3880,16 @@
     document.querySelectorAll('.nav-item').forEach(el => {
       el.addEventListener('click', () => navigate(el.dataset.section));
     });
-    try { $('menuToggle').addEventListener('click', () => $('sidebar').classList.toggle('open')); } catch(e){}
-    try { $('sidebarBackdrop').addEventListener('click', () => $('sidebar').classList.remove('open')); } catch(e){}
+    try {
+      $('menuToggle').addEventListener('click', () => {
+        $('sidebar').classList.toggle('open');
+        $('sidebarBackdrop').classList.toggle('open');
+      });
+      $('sidebarBackdrop').addEventListener('click', () => {
+        $('sidebar').classList.remove('open');
+        $('sidebarBackdrop').classList.remove('open');
+      });
+    } catch(e){}
 
     // ===== Dashboard / Stats =====
     function renderStats() {
