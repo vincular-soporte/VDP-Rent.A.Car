@@ -917,6 +917,12 @@
       max-height: calc(100vh - 380px);
       min-height: 480px;
     }
+    @media (max-width: 640px) {
+      .calendar-scroll {
+        max-height: calc(100dvh - 180px);
+        min-height: 300px;
+      }
+    }
     .calendar-grid {
       display: grid;
       min-width: 100%;
@@ -1943,7 +1949,7 @@
       .form-field label { font-size: 11.5px; }
 
       /* === TABLAS → SCROLL HORIZONTAL FLUIDO === */
-      .data-table-wrap, [style*="overflow-x: auto"] {
+      .data-table-wrap, [style*="overflow-x: auto"]:not(.calendar-scroll) {
         margin-left: -12px;
         margin-right: -12px;
         padding-left: 12px;
@@ -4195,7 +4201,7 @@
       const grid = $('calGrid');
       const isMobile = window.innerWidth <= 768;
       const dayColW = 34;
-      const vehColW = isMobile ? 100 : 145;
+      const vehColW = isMobile ? 110 : 145;
       const rowH = 38;
       grid.style.gridTemplateColumns = `${vehColW}px repeat(${totalDays}, ${dayColW}px)`;
       // 2 filas de header: meses + días
