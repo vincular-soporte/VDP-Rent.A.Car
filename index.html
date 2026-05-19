@@ -2575,7 +2575,7 @@
               <div class="value" id="finIngresos">$0</div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Todo lo que se abonó</div>
             </div>
-            <div class="fin-card pending" style="cursor:pointer;" onclick="openFinDetalle('pendiente')" title="Ver detalle de pendientes">
+            <div class="fin-card pending" style="cursor:zoom-in;" onclick="openFinDetalle('pendiente')" title="Ver detalle de pendientes">
               <div class="label">Pendiente de cobro <span style="font-size:10px;opacity:.7;">🔍 ver detalle</span></div>
               <div class="value" id="finPendiente">$0</div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Alquileres + infracc. + TP + daños</div>
@@ -2655,8 +2655,14 @@
                 <span id="finCajaToggle" style="font-size:18px;color:var(--text-muted);">▾</span>
               </div>
             </div>
-            <div id="finCajaSection" style="overflow-x:auto;">
-              <div id="finCajaTabla"></div>
+            <div id="finCajaSection">
+              <div style="display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+                <select id="finCajaFiltroResp" onchange="renderFinCaja()" style="font-size:12px;padding:5px 8px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);font-weight:600;color:var(--text);">
+                  <option value="">Todos los operadores</option>
+                </select>
+                <button onclick="exportMovimientosExcel()" style="margin-left:auto;font-size:12px;padding:5px 12px;border:1px solid var(--vdp-blue);border-radius:var(--radius-sm);background:var(--surface);color:var(--vdp-blue);cursor:pointer;font-weight:600;">⬇ Exportar CSV</button>
+              </div>
+              <div style="overflow-x:auto;"><div id="finCajaTabla"></div></div>
             </div>
           </div>
 
@@ -3305,6 +3311,19 @@
           </div>
         </div>
         <div id="flotaPolizaAlert" style="display:none; margin-top: 8px;"></div>
+
+        <!-- Valores por defecto para reservas -->
+        <div class="modal-section-title" style="margin-top:12px;">💳 Valores por defecto en reservas</div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Monto Franquicia ($)</label>
+            <input type="number" id="flotaFranquicia" placeholder="Ej: 500000" min="0" />
+          </div>
+          <div class="form-field">
+            <label>Monto Pre-Autorización ($)</label>
+            <input type="number" id="flotaPreAuth" placeholder="Ej: 300000" min="0" />
+          </div>
+        </div>
 
         <!-- ESTADO DEL VEHÍCULO -->
         <div style="margin-top:16px; border:1.5px solid var(--border-strong); border-radius:var(--radius); overflow:hidden;">
@@ -4039,7 +4058,7 @@
         { id: 'cg6', nombre: 'Daños totales',           valor: 'Según Póliza Vigente', unidad: '' },
       ],
       // Personal de VDP — usado en Gestión de Reserva (quién genera/entrega/devuelve)
-      staff: ['Tomas', 'Mauricio', 'Homero', 'Claudio'],
+      staff: ['Admin', 'Tomás', 'Mauricio', 'Homero', 'Claudio'],
       // Orígenes adicionales para "Generó" (incluye los del staff + Web/Oficina)
       origenes: ['Tomas', 'Mauricio', 'Homero', 'Claudio', 'Web', 'Oficina'],
 
@@ -4089,41 +4108,41 @@
       'staff', 'origenes',
       'vehicles', 'clients', 'empresas', 'reservations', 'blocks',
       'reservaCounter',
+      'novedades', 'tickets', 'pagos', 'planes', 'tasks', 'infracciones',
+      'telepase', 'movimientos', 'calTimeline',
     ];
 
-    // Guarda todos los campos en Supabase (una llamada por entidad grande, o todo junto en config)
+    // Guarda todos los campos en Supabase
     async function saveState() {
-      _rtLastSave = Date.now(); // marcar para ignorar el eco de realtime
+      _rtLastSave = Date.now();
 
-      // 1) PRIORIDAD: guardar vdp_config (donde van novedades, tickets, pagos, planes, etc.)
-      //    Esto se hace de forma independiente y con su propio manejo de errores con reintento.
-      try {
-        const configData = {};
-        ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones'].forEach(k => {
-          configData[k] = STATE[k];
+      const buildConfigData = () => {
+        const d = {};
+        ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones','telepase','movimientos','calTimeline'].forEach(k => {
+          d[k] = STATE[k];
         });
-        configData._savedAt = new Date().toISOString();
-        await supa.upsert('vdp_config', 'main_config', configData);
-      } catch (e) {
-        console.error('❌ saveState: no se pudo guardar vdp_config:', e);
-        // Reintento único después de 600ms
+        d._savedAt = new Date().toISOString();
+        return d;
+      };
+
+      // 1) Guardar vdp_config con reintentos
+      let saved = false;
+      for (let attempt = 0; attempt < 3 && !saved; attempt++) {
         try {
-          await new Promise(r => setTimeout(r, 600));
-          const configData = {};
-          ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones'].forEach(k => {
-            configData[k] = STATE[k];
-          });
-          configData._savedAt = new Date().toISOString();
-          await supa.upsert('vdp_config', 'main_config', configData);
-          console.log('✅ saveState: vdp_config guardado en reintento');
-        } catch (e2) {
-          console.error('❌ saveState: reintento también falló:', e2);
-          if (typeof toast === 'function') toast('No se pudo sincronizar con la nube. Revisá tu conexión.', 'error');
+          if (attempt > 0) await new Promise(r => setTimeout(r, 800 * attempt));
+          await supa.upsert('vdp_config', 'main_config', buildConfigData());
+          saved = true;
+          if (attempt > 0) console.log(`✅ saveState: vdp_config guardado en intento ${attempt + 1}`);
+        } catch (e) {
+          console.warn(`⚠️ saveState intento ${attempt + 1} falló:`, e);
+          if (attempt === 2) {
+            console.error('❌ saveState: todos los intentos fallaron');
+            if (typeof toast === 'function') toast('⚠️ No se pudo sincronizar. Revisá tu conexión.', 'error');
+          }
         }
       }
 
-      // 2) Colecciones (vehicles/clients/empresas/reservations/blocks) — cada una en su tabla propia.
-      //    Errores acá no deben afectar el guardado del config.
+      // 2) Colecciones (vehicles/clients/empresas/reservations/blocks)
       try {
         await Promise.all([
           ...STATE.vehicles.map(v => supa.upsert('vdp_vehicles', v.id, v)),
@@ -4133,7 +4152,7 @@
           ...STATE.blocks.map(b => supa.upsert('vdp_blocks', b.id, b)),
         ]);
       } catch (e) {
-        console.error('No se pudieron guardar colecciones en Supabase:', e);
+        console.warn('saveState: error guardando colecciones:', e);
       }
     }
 
@@ -4152,12 +4171,18 @@
         let _novedadesEnConfig = false, _ticketsEnConfig = false;
         if (cfgRow?.data) {
           const d = cfgRow.data;
-          ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones'].forEach(k => {
+          ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones','telepase','movimientos','calTimeline'].forEach(k => {
             if (d[k] !== undefined) STATE[k] = d[k];
           });
           _novedadesEnConfig = d.novedades !== undefined;
           _ticketsEnConfig   = d.tickets   !== undefined;
         }
+        // Safe defaults for modules that may not exist in older saves
+        if (!STATE.telepase || typeof STATE.telepase !== 'object') STATE.telepase = { movimientos: [], liquidaciones: [] };
+        if (!Array.isArray(STATE.telepase.movimientos))   STATE.telepase.movimientos   = [];
+        if (!Array.isArray(STATE.telepase.liquidaciones)) STATE.telepase.liquidaciones = [];
+        if (!Array.isArray(STATE.movimientos))  STATE.movimientos  = [];
+        if (!Array.isArray(STATE.calTimeline))  STATE.calTimeline  = [];
         if (!_novedadesEnConfig) STATE.novedades = NOVEDADES_SEED.slice();
         if (!_ticketsEnConfig)   STATE.tickets   = [];
         if (!Array.isArray(STATE._readNovedades)) STATE._readNovedades = [];
@@ -6026,6 +6051,8 @@
       $('flotaAseguradora').value = v?.aseguradora || '';
       $('flotaFechaRevision').value = v?.fechaRevision || '';
       $('flotaRevisadoPor').value = v?.revisadoPor || '';
+      if ($('flotaFranquicia')) $('flotaFranquicia').value = v?.franquiciaDefault ?? '';
+      if ($('flotaPreAuth'))    $('flotaPreAuth').value    = v?.preAuthDefault    ?? '';
       window._danosList = v?.danos ? JSON.parse(JSON.stringify(v.danos)) : [];
       setTimeout(() => { renderDanoOverlay(); renderDanoLista(); }, 50);
       // Show poliza alert if applicable
@@ -6648,7 +6675,7 @@
         const colorMine=isMine?'#fff':'var(--text)';
         const align=isMine?'flex-end':'flex-start';
         const imgHtml = m.imagenLocal
-          ? '<div style="margin-bottom:'+(m.texto?'6px':'0')+';"><img src="'+m.imagenLocal+'" alt="Imagen adjunta" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;display:block;" onclick="window.open(this.src,\'_blank\')" /></div>'
+          ? '<div style="margin-bottom:'+(m.texto?'6px':'0')+';"><img src="'+m.imagenLocal+'" alt="Imagen adjunta" style="max-width:100%;max-height:200px;border-radius:8px;cursor:zoom-in;display:block;" onclick="openChatImgLightbox(this.src)" /></div>'
           : '';
         const textHtml = m.texto ? escapeHtml(m.texto) : '';
         // Si tiene imagen pero no texto, achicar el padding
@@ -6660,6 +6687,22 @@
       }).join('');
       cont.scrollTop=cont.scrollHeight;
     }
+
+    function openChatImgLightbox(src) {
+      let lb = document.getElementById('chatImgLightbox');
+      if (!lb) {
+        lb = document.createElement('div');
+        lb.id = 'chatImgLightbox';
+        lb.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:16px;';
+        lb.innerHTML = '<img id="chatImgLightboxImg" style="max-width:100%;max-height:90vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.6);object-fit:contain;"/>' +
+          '<button onclick="event.stopPropagation();document.getElementById(\'chatImgLightbox\').style.display=\'none\';" style="position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:22px;cursor:pointer;">×</button>';
+        lb.addEventListener('click', () => { lb.style.display = 'none'; });
+        document.body.appendChild(lb);
+      }
+      document.getElementById('chatImgLightboxImg').src = src;
+      lb.style.display = 'flex';
+    }
+    window.openChatImgLightbox = openChatImgLightbox;
 
     // Imagen pendiente en buffer (no persiste — solo en memoria del chat actual)
     let _chatPendingImage = null;
@@ -6946,6 +6989,8 @@
       const aseguradora = ($('flotaAseguradora')?.value || '').trim();
       const fechaRevision = ($('flotaFechaRevision')?.value || '').trim();
       const revisadoPor = ($('flotaRevisadoPor')?.value || '').trim();
+      const franquiciaDefault = parseFloat($('flotaFranquicia')?.value) || 0;
+      const preAuthDefault    = parseFloat($('flotaPreAuth')?.value)    || 0;
       const danos = window._danosList || [];
       if (!dominio) { toast('Ingresá el dominio', 'error'); return; }
 
@@ -6955,11 +7000,11 @@
         if (v.categoria !== categoria) {
           STATE.reservations.forEach(r => { if (r.vehicleId === v.id) r.categoria = categoria; });
         }
-        Object.assign(v, { dominio, modelo, categoria, km, polizaNumero, polizaVigencia, aseguradora, fechaRevision, revisadoPor, danos });
+        Object.assign(v, { dominio, modelo, categoria, km, polizaNumero, polizaVigencia, aseguradora, fechaRevision, revisadoPor, danos, franquiciaDefault, preAuthDefault });
         saveState();
         toast('Unidad actualizada', 'success');
       } else {
-        STATE.vehicles.push({ id: 'v_' + Math.random().toString(36).slice(2,7), dominio, modelo, categoria, km, polizaNumero, polizaVigencia, aseguradora, fechaRevision, revisadoPor, danos });
+        STATE.vehicles.push({ id: 'v_' + Math.random().toString(36).slice(2,7), dominio, modelo, categoria, km, polizaNumero, polizaVigencia, aseguradora, fechaRevision, revisadoPor, danos, franquiciaDefault, preAuthDefault });
         saveState();
         toast('Unidad agregada', 'success');
       }
@@ -7604,12 +7649,26 @@
               <td style="padding:9px 12px;white-space:nowrap;font-weight:600;">${m.fecha||'—'}</td>
               <td style="padding:9px 12px;text-align:center;">${dot}</td>
               <td style="padding:9px 12px;">
-                <div style="font-weight:600;">${m.detalle||'—'}</div>
-                ${m.vinculoTipo?`<div style="font-size:11px;color:var(--text-muted);">${m.vinculoTipo}${m.vinculoRef?' #'+m.vinculoRef:''}</div>`:''}
+                ${(() => {
+                  const needsApproval = m.estadoAprobacion === 'pendiente';
+                  const isRejected    = m.estadoAprobacion === 'rechazado';
+                  const isAdminUser   = STATE.currentUser?.role === 'admin';
+                  const badge = needsApproval
+                    ? '<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;background:#FEF3C7;color:#92400E;margin-left:6px;">⏳ Pendiente aprobación</span>'
+                    : isRejected
+                    ? '<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;background:#FEE2E2;color:#991B1B;margin-left:6px;">✗ Rechazado'+(m.comentarioAdmin?' · '+m.comentarioAdmin:'')+'</span>'
+                    : '';
+                  const adminBtns = isAdminUser && needsApproval
+                    ? '<div onclick="event.stopPropagation()" style="display:flex;gap:4px;margin-top:4px;"><button onclick="aprobarMov(\''+m.id+'\')" style="font-size:11px;padding:3px 8px;border:1px solid #10B981;border-radius:4px;color:#10B981;background:transparent;cursor:pointer;font-weight:600;">✓ Aprobar</button><button onclick="rechazarMov(\''+m.id+'\')" style="font-size:11px;padding:3px 8px;border:1px solid #EF4444;border-radius:4px;color:#EF4444;background:transparent;cursor:pointer;font-weight:600;">✗ Rechazar</button></div>'
+                    : '';
+                  return '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;"><span style="font-weight:600;">'+(m.detalle||'—')+'</span>'+badge+'</div>'
+                    +(m.vinculoTipo ? '<div style="font-size:11px;color:var(--text-muted);">'+m.vinculoTipo+(m.vinculoRef?' #'+m.vinculoRef:'')+'</div>' : '')
+                    +adminBtns;
+                })()}
               </td>
               <td style="padding:9px 12px;font-size:12px;color:var(--text-muted);">${m.responsable||'—'}</td>
               <td style="padding:9px 12px;font-size:12px;">${m.metodo||'—'}</td>
-              <td style="padding:9px 12px;text-align:right;font-weight:800;color:${col};">${signo}${fmt$(m.importe||0)}</td>
+              <td style="padding:9px 12px;text-align:right;font-weight:800;color:${col}${m.estadoAprobacion==='pendiente'?';opacity:.55':''};">${signo}${fmt$(m.importe||0)}</td>
               <td style="padding:9px 12px;" onclick="event.stopPropagation()">
                 ${m.comprobanteUrl?`<button onclick="window.open('${m.comprobanteUrl}','_blank')" style="font-size:11px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius-sm);background:transparent;cursor:pointer;">🧾</button>`:''}
               </td>
@@ -7700,6 +7759,10 @@
       };
       if (!data.fecha || !data.importe) { toast('Completá fecha e importe', 'error'); return; }
       if (!data.detalle) { toast('Escribí un detalle', 'error'); return; }
+      const isTransfer = data.metodo === 'Transferencia' || data.metodo === 'Transferencia Claudio';
+      const isAdmin = STATE.currentUser?.role === 'admin';
+      data.estadoAprobacion = isTransfer && !isAdmin ? 'pendiente' : 'aprobado';
+      data.comentarioAdmin = null;
       if (_editingMovId) {
         const m = STATE.movimientos.find(x=>x.id===_editingMovId);
         if (m) Object.assign(m, { ...data, actualizadoEn: Date.now() });
@@ -7710,6 +7773,24 @@
       }
       saveState(); closeMovModal(); renderMovimientos();
     }
+
+    function aprobarMov(id) {
+      STATE.movimientos = STATE.movimientos || [];
+      const m = STATE.movimientos.find(x=>x.id===id);
+      if (!m) return;
+      m.estadoAprobacion = 'aprobado'; m.actualizadoEn = Date.now();
+      saveState(); renderMovimientos(); toast('Transferencia aprobada', 'success');
+    }
+    function rechazarMov(id) {
+      const comentario = prompt('Comentario para rechazar (opcional):') ?? '';
+      STATE.movimientos = STATE.movimientos || [];
+      const m = STATE.movimientos.find(x=>x.id===id);
+      if (!m) return;
+      m.estadoAprobacion = 'rechazado'; m.comentarioAdmin = comentario.trim() || null; m.actualizadoEn = Date.now();
+      saveState(); renderMovimientos(); toast('Transferencia rechazada', 'info');
+    }
+    window.aprobarMov  = aprobarMov;
+    window.rechazarMov = rechazarMov;
 
     function deleteMov() {
       if (!_editingMovId || !confirm('¿Eliminar este movimiento?')) return;
@@ -8442,7 +8523,14 @@
             montoAbonado: 0,
             metodoPago: 'CRÉDITO',
             preAutorizacion: 'Pendiente',
-            franquicia: STATE.empresa.franquiciaDefault || 500000,
+            franquicia: (() => {
+              const veh = prefill.vehicleId ? STATE.vehicles.find(v => v.id === prefill.vehicleId) : null;
+              return veh?.franquiciaDefault || STATE.empresa.franquiciaDefault || 500000;
+            })(),
+            preAuthMonto: (() => {
+              const veh = prefill.vehicleId ? STATE.vehicles.find(v => v.id === prefill.vehicleId) : null;
+              return veh?.preAuthDefault || 0;
+            })(),
             tarjetaNumero: '',
             tarjetaTipo: 'VISA',
             tarjetaVto: '',
@@ -8698,7 +8786,7 @@
           <div class="form-row">
             <div class="form-field">
               <label>Unidad asignada</label>
-              <select id="resVehiculo">${buildVehicleOptions(r.fechaEntrega, r.fechaDevolucion, r.vehicleId)}</select>
+              <select id="resVehiculo" onchange="onReservaVehiculoChange(this.value)">${buildVehicleOptions(r.fechaEntrega, r.fechaDevolucion, r.vehicleId)}</select>
             </div>
             <div class="form-field">
               <label>Categoría contratada</label>
@@ -8758,7 +8846,10 @@
             <div class="form-field"><label>Vencimiento</label><input type="text" id="resTarjetaVto" value="${r.tarjetaVto || ''}" placeholder="MM/AA" /></div>
           </div>
           <div class="form-row">
-            <div class="form-field"><label>Importe franquicia</label><input type="number" id="resFranquicia" value="${r.franquicia || 0}" /></div>
+            <div class="form-field"><label>Importe franquicia ($)</label><input type="number" id="resFranquicia" value="${r.franquicia || 0}" /></div>
+            <div class="form-field"><label>Monto pre-autorización ($)</label><input type="number" id="resPreAuthMonto" value="${r.preAuthMonto || 0}" placeholder="0"/></div>
+          </div>
+          <div class="form-row">
             <div class="form-field"><label>N° pre-autorización</label><input type="text" id="resPreAuthNumero" value="${r.preAutorizacionNumero || ''}" /></div>
           </div>
         </div>
@@ -9000,6 +9091,15 @@
       if (rmEl) rmEl.scrollTop = 0;
     }
 
+    function onReservaVehiculoChange(vehId) {
+      const veh = STATE.vehicles.find(v => v.id === vehId);
+      if (!veh || STATE._editingReservaId) return;
+      const franqEl = $('resFranquicia');
+      const preAuthMonto = $('resPreAuthMonto');
+      if (franqEl && veh.franquiciaDefault) franqEl.value = veh.franquiciaDefault;
+      if (preAuthMonto && veh.preAuthDefault) preAuthMonto.value = veh.preAuthDefault;
+    }
+
     function closeReservaModal() { $('reservaModal').classList.remove('open'); STATE._editingReservaId = null; }
 
     $('btnSaveReserva').addEventListener('click', () => {
@@ -9025,6 +9125,7 @@
         metodoPago: v('resMetodoPago') || 'CRÉDITO',
         preAutorizacion: v('resPreAuth'),
         franquicia: parseFloat(v('resFranquicia')) || 0,
+        preAuthMonto: parseFloat(v('resPreAuthMonto')) || 0,
         tarjetaNumero: v('resTarjetaNumero'),
         tarjetaTipo: v('resTarjetaTipo'),
         tarjetaVto: v('resTarjetaVto'),
@@ -9663,7 +9764,10 @@
       <td class="k">VENCIMIENTO</td><td class="v">${reserva.tarjetaVto||'&nbsp;'}</td>
       <td class="k">FRANQUICIA</td><td class="v" style="font-weight:700;">${fmt.money(reserva.franquicia||0)}</td>
     </tr>
-    <tr class="dr"><td class="k">N° PREAUTORIZACIÓN</td><td>${truncate(reserva.preAutorizacionNumero,24)||'&nbsp;'}</td></tr>
+    <tr class="dr4">
+      <td class="k">N° PREAUTORIZACIÓN</td><td class="v">${truncate(reserva.preAutorizacionNumero,20)||'&nbsp;'}</td>
+      <td class="k">MONTO PRE-AUT.</td><td class="v" style="font-weight:700;">${reserva.preAuthMonto ? fmt.money(reserva.preAuthMonto) : '&nbsp;'}</td>
+    </tr>
   </table>
 
   <!-- ADVERTENCIAS -->
@@ -10077,6 +10181,90 @@
     window.toggleFinSection = toggleFinSection;
     window.openFinDetalle   = openFinDetalle;
 
+    function renderFinCaja() {
+      const movs = STATE.movimientos || [];
+      const tabla = document.getElementById('finCajaTabla');
+      if (!tabla) return;
+      const { desde: fD, hasta: fH } = getFinDateRange();
+      const selResp = document.getElementById('finCajaFiltroResp');
+      if (selResp) {
+        const curr = selResp.value;
+        const resps = [...new Set(movs.map(m=>m.responsable).filter(Boolean))].sort();
+        selResp.innerHTML = '<option value="">Todos los operadores</option>' +
+          resps.map(r=>`<option value="${r}" ${curr===r?'selected':''}>${r}</option>`).join('');
+        selResp.value = curr;
+      }
+      const filtroResp = selResp?.value || '';
+      const periodoMovs = movs.filter(m => {
+        if (m.fecha < fD || m.fecha > fH) return false;
+        if (filtroResp && m.responsable !== filtroResp) return false;
+        return true;
+      });
+      if (!periodoMovs.length) {
+        tabla.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px;">Sin movimientos en este período.</div>';
+        return;
+      }
+      const fmt$ = n=>'$'+Math.round(n).toLocaleString('es-AR');
+      tabla.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <thead><tr style="background:var(--surface-2,#F8F9FA);border-bottom:2px solid var(--border);">
+          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Fecha</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Responsable</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Detalle</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Método</th>
+          <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Ingreso</th>
+          <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Egreso</th>
+        </tr></thead>
+        <tbody>${periodoMovs.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map((m,i)=>{
+          const stripe = i%2===1?'background:var(--surface-2,#FAFAFA);':'';
+          const ing = m.tipo==='ingreso'?(parseFloat(m.importe)||0):0;
+          const egr = m.tipo==='egreso'?(parseFloat(m.importe)||0):0;
+          return `<tr style="${stripe}border-bottom:1px solid var(--border);">
+            <td style="padding:7px 12px;white-space:nowrap;">${m.fecha||'—'}</td>
+            <td style="padding:7px 12px;">${m.responsable||'—'}</td>
+            <td style="padding:7px 12px;font-weight:600;">${m.detalle||'—'}${m.estadoAprobacion==='pendiente'?'<span style="font-size:10px;margin-left:6px;color:#92400E;"> ⏳</span>':''}</td>
+            <td style="padding:7px 12px;font-size:12px;">${m.metodo||'—'}</td>
+            <td style="padding:7px 12px;text-align:right;color:#10B981;font-weight:${ing>0?'700':'400'};">${ing>0?fmt$(ing):'—'}</td>
+            <td style="padding:7px 12px;text-align:right;color:#EF4444;font-weight:${egr>0?'700':'400'};">${egr>0?fmt$(egr):'—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+        <tfoot><tr style="background:var(--surface-2,#F8F9FA);font-weight:700;border-top:2px solid var(--border);">
+          <td colspan="4" style="padding:8px 12px;font-size:12px;text-transform:uppercase;">TOTAL</td>
+          <td style="padding:8px 12px;text-align:right;color:#10B981;">${fmt$(periodoMovs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+(parseFloat(m.importe)||0),0))}</td>
+          <td style="padding:8px 12px;text-align:right;color:#EF4444;">${fmt$(periodoMovs.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+(parseFloat(m.importe)||0),0))}</td>
+        </tr></tfoot>
+      </table>`;
+    }
+    window.renderFinCaja = renderFinCaja;
+
+    function exportMovimientosExcel() {
+      const movs = STATE.movimientos || [];
+      const { desde: fD, hasta: fH } = getFinDateRange();
+      const filtroResp = document.getElementById('finCajaFiltroResp')?.value || '';
+      const data = movs.filter(m => {
+        if (m.fecha < fD || m.fecha > fH) return false;
+        if (filtroResp && m.responsable !== filtroResp) return false;
+        return true;
+      }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+      const header = ['Fecha','Responsable','Tipo','Detalle','Método','Importe','Estado'];
+      const rows = data.map(m=>[
+        m.fecha||'',
+        m.responsable||'',
+        m.tipo||'',
+        '"'+(m.detalle||'').replace(/"/g,'""')+'"',
+        m.metodo||'',
+        m.importe||0,
+        m.estadoAprobacion||'aprobado'
+      ]);
+      const csv = [header,...rows].map(r=>r.join(',')).join('\n');
+      const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `movimientos_${fD}_${fH}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      toast('Exportado como CSV', 'success');
+    }
+    window.exportMovimientosExcel = exportMovimientosExcel;
+
     function setFinPeriod(period, btn) {
       _finPeriod = period;
       document.querySelectorAll('.fin-period-btn').forEach(b => b.classList.remove('active'));
@@ -10135,59 +10323,8 @@
       const cajaWrap = $('finCajaSection_wrap');
       if (cajaWrap) {
         cajaWrap.style.display = (STATE.currentUser?.role === 'admin' || STATE.currentUser?.role === 'soporte') ? '' : 'none';
-        const cajaTabla = $('finCajaTabla');
-        if (cajaTabla) {
-          const movs = STATE.movimientos || [];
-          const { desde: fD, hasta: fH } = getFinDateRange();
-          const periodoMovs = movs.filter(m => m.fecha >= fD && m.fecha <= fH);
-          if (!periodoMovs.length) {
-            cajaTabla.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:13px;">Sin movimientos de caja en este período.</div>';
-          } else {
-            const resp = [...new Set(periodoMovs.map(m=>m.responsable).filter(Boolean))];
-            const fmt$ = n => '$'+Math.round(n).toLocaleString('es-AR');
-            cajaTabla.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-              <thead><tr style="background:var(--surface-2,#F8F9FA);border-bottom:2px solid var(--border);">
-                <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Responsable</th>
-                <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Ingresos</th>
-                <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Egresos</th>
-                <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Saldo</th>
-              </tr></thead>
-              <tbody>${resp.map((r,i) => {
-                const rMovs = periodoMovs.filter(m=>m.responsable===r);
-                const ing = rMovs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+(parseFloat(m.importe)||0),0);
-                const egr = rMovs.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+(parseFloat(m.importe)||0),0);
-                const saldo = ing-egr;
-                return `<tr style="${i%2===1?'background:var(--surface-2,#FAFAFA);':''}border-bottom:1px solid var(--border);">
-                  <td style="padding:8px 12px;font-weight:600;">${r}</td>
-                  <td style="padding:8px 12px;text-align:right;color:#10B981;font-weight:600;">${fmt$(ing)}</td>
-                  <td style="padding:8px 12px;text-align:right;color:#EF4444;font-weight:600;">${fmt$(egr)}</td>
-                  <td style="padding:8px 12px;text-align:right;font-weight:700;color:${saldo>=0?'var(--vdp-blue)':'#EF4444'};">${fmt$(saldo)}</td>
-                </tr>`;
-              }).join('')}</tbody>
-            </table>`;
-          }
-        }
+        renderFinCaja();
       }
-
-      // Label período
-      const labels = {mes:'Este mes',mes_ant:'Mes anterior',trim:'Trimestre',anio:'Este año',todo:'Todo',custom:'Personalizado'};
-      const el = $('finPeriodLabel');
-      if (el) el.textContent = labels[_finPeriod] || '';
-
-      // ── Tabla ORIGEN ──
-      const origenes = ['Tomas','Mauricio','Homero','Claudio','Web','Oficina','—'];
-      const origenRows = origenes.map(org => {
-        const res = periodoRes.filter(r => (r.gestionGenero || '—') === org);
-        if (res.length === 0 && org === '—' && periodoRes.filter(r => !r.gestionGenero).length === 0) return null;
-        const resOrg = org === '—' ? periodoRes.filter(r => !r.gestionGenero) : res;
-        if (resOrg.length === 0) return null;
-        const fac = resOrg.reduce((s, r) => s + totalReserva(r), 0);
-        const cob = resOrg.reduce((s, r) => s + (r.montoAbonado || 0), 0);
-        const pen = resOrg.reduce((s, r) => s + Math.max(0, totalReserva(r) - (r.montoAbonado || 0)), 0);
-        const pct = periodoRes.length ? ((resOrg.length / periodoRes.length)*100).toFixed(1) : 0;
-        const ticket = resOrg.length ? Math.round(fac / resOrg.length) : 0;
-        return { org, cant: resOrg.length, pct, fac, cob, pen, ticket };
-      }).filter(Boolean).sort((a,b) => b.cant - a.cant);
 
       $('finOrigenTbody').innerHTML = origenRows.map((o,i) => {
         const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
@@ -10433,7 +10570,7 @@
         if (table === 'vdp_config') {
           if (newRecord?.data) {
             const d = newRecord.data;
-            ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones'].forEach(k => {
+            ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones','telepase','movimientos','calTimeline'].forEach(k => {
               if (d[k] !== undefined) STATE[k] = d[k];
             });
             if (_activeChatTicketId) {
@@ -10574,22 +10711,34 @@
       };
     }
 
-    // Polling fallback: recargar datos cada 10s por si el WS falla
+    // Polling fallback: recargar datos cada 10s por si el WS falla o hay multi-usuario
     let _pollFallbackInterval = null;
     function startPollingFallback() {
-      if (_pollFallbackInterval) return;
+      if (_pollFallbackInterval) clearInterval(_pollFallbackInterval);
       _pollFallbackInterval = setInterval(async () => {
         if (!STATE.currentUser) return;
-        // Solo sincronizar si el WS no está conectado o si pasaron más de 10s sin updates
-        if (!_rtSocket || _rtSocket.readyState !== WebSocket.OPEN) {
+        // Siempre sincronizar si hay más de 15s sin actividad del WS
+        const wsOk = _rtSocket && _rtSocket.readyState === WebSocket.OPEN;
+        const sinceLastSave = Date.now() - (_rtLastSave || 0);
+        if (!wsOk || sinceLastSave > 15000) {
           try {
-            await loadState();
-            renderStats();
-            updateBadges();
-            if (document.getElementById('section-reservas')?.classList.contains('active')) renderReservas();
-            if (document.getElementById('section-infracciones')?.classList.contains('active')) renderInfracciones();
-            if (document.getElementById('section-clientes')?.classList.contains('active')) renderClientes();
-          } catch(e) { console.warn('[VDP Poll] Error en polling fallback:', e); }
+            const ok = await loadState();
+            if (ok) {
+              renderStats(); updateBadges();
+              const active = document.querySelector('.section.active');
+              if (active) {
+                const sid = active.id.replace('section-','');
+                if (sid === 'reservas')     renderReservas();
+                if (sid === 'dashboard')    renderCalendar();
+                if (sid === 'infracciones') renderInfracciones();
+                if (sid === 'telepase')     renderTelepase();
+                if (sid === 'movimientos')  renderMovimientos();
+                if (sid === 'actividades')  renderActividades();
+                if (sid === 'clientes')     renderClientes();
+                if (sid === 'financiero')   renderFinanciero();
+              }
+            }
+          } catch(e) { console.warn('[VDP Poll] Error:', e); }
         }
       }, 10000);
     }
@@ -11134,11 +11283,20 @@
 
     function renderActividades() {
       renderActKpis();
+      const user = STATE.currentUser;
+      const isAdmin = user?.role === 'admin';
+      const userDisplay = user?.display || user?.name || '';
       const selResp = document.getElementById('actFiltroResp');
       if (selResp) {
         const current = selResp.value;
         selResp.innerHTML = '<option value="">Todos los responsables</option>' +
           (STATE.staff || []).map(s => `<option value="${s}" ${current===s?'selected':''}>${s}</option>`).join('');
+        // Auto-select current user for non-admin on first render
+        if (!current && !isAdmin && userDisplay) {
+          const normalize = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+          const match = (STATE.staff||[]).find(s => normalize(s) === normalize(userDisplay));
+          if (match) selResp.value = match;
+        }
       }
       const tasks = STATE.tasks || [];
       const q    = (document.getElementById('actSearch')?.value || '').toLowerCase().trim();
@@ -11204,9 +11362,12 @@
       const task = id ? (STATE.tasks||[]).find(t=>t.id===id) : null;
       const isAdmin = STATE.currentUser?.role === 'admin';
       const userDisplay = STATE.currentUser?.display || STATE.currentUser?.name || '';
-      // Permission: can edit if admin or assigned to self
-      if (task && !isAdmin && task.responsable !== userDisplay) {
-        toast('Solo podés editar actividades asignadas a vos', 'error'); return;
+      // Normalize for comparison (strip accents, lowercase)
+      const normalize = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+      const isAssigned = task && normalize(task.responsable) === normalize(userDisplay);
+      // Block only if NOT admin AND NOT the assigned person
+      if (task && !isAdmin && !isAssigned) {
+        toast('Esta tarea está asignada a otro responsable', 'error'); return;
       }
       _editingActId = id || null;
       document.getElementById('actModalTitle').textContent = task ? 'Editar tarea' : 'Nueva tarea';
