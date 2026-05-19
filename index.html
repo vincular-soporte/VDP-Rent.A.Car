@@ -913,15 +913,23 @@
 
     .calendar-scroll {
       overflow-x: auto;
-      overflow-y: auto;
-      max-height: calc(100vh - 380px);
+      overflow-y: visible;
+      max-height: none;
       min-height: 480px;
+      -webkit-overflow-scrolling: touch;
     }
     @media (max-width: 640px) {
       .calendar-scroll {
-        max-height: calc(100dvh - 180px);
+        max-height: none;
         min-height: 300px;
       }
+    }
+    /* Ensure sticky left works inside overflow-x:auto container */
+    .cal-vehicle {
+      will-change: transform; /* force compositing layer for sticky */
+    }
+    .cal-corner {
+      will-change: transform;
     }
     .calendar-grid {
       display: grid;
@@ -2337,6 +2345,10 @@
           <button class="btn btn-primary" id="btnNewMovTop" style="display:none;" onclick="openMovModal()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             <span class="btn-text">Nuevo movimiento</span>
+          </button>
+          <button class="btn btn-primary" id="btnNewTpTop" style="display:none;" onclick="openTpModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span class="btn-text">Cargar peaje</span>
           </button>
         </div>
       </header>
@@ -4405,12 +4417,14 @@
       const btnInfra = document.getElementById('btnNewInfraTop');
       const btnAct   = document.getElementById('btnNewActTop');
       const btnMov   = document.getElementById('btnNewMovTop');
+      const btnTp    = document.getElementById('btnNewTpTop');
       const hideAll  = ['soporte','pagos','novedades','financiero','actividades','flota','telepase','movimientos'].includes(sectionId);
       if (btnRes)   btnRes.style.display   = (hideAll || sectionId === 'infracciones') ? 'none' : '';
       if (btnToday) btnToday.style.display = (hideAll || sectionId === 'infracciones') ? 'none' : '';
       if (btnInfra) btnInfra.style.display = sectionId === 'infracciones' ? '' : 'none';
       if (btnAct)   btnAct.style.display   = sectionId === 'actividades'  ? '' : 'none';
       if (btnMov)   btnMov.style.display   = sectionId === 'movimientos'  ? '' : 'none';
+      if (btnTp)    btnTp.style.display    = sectionId === 'telepase'     ? '' : 'none';
     }
 
     document.querySelectorAll('.nav-item').forEach(el => {
