@@ -3724,6 +3724,16 @@
         return await r.json();
       },
 
+      async getAllByPrefix(prefix) {
+        // Fetch vdp_config rows where key starts with prefix
+        const r = await supa._fetchTO(
+          `${SUPABASE_URL}/rest/v1/vdp_config?key=like.${encodeURIComponent(prefix + '%')}&select=*`,
+          { headers: supa.headers() }, 15000
+        );
+        if (!r.ok) return [];
+        return await r.json();
+      },
+
       async upsert(table, id, data) {
         // vdp_config usa 'key' como PK; el resto usa 'id'
         const pkField = table === 'vdp_config' ? 'key' : 'id';
@@ -4084,6 +4094,7 @@
       calTimeline: [],    // historial de cambios en el calendario
       telepase:    { movimientos: [], liquidaciones: [] },
       movimientos: [],    // caja de movimientos de dinero
+      infracciones: [],   // módulo de infracciones
 
       // ===== UI temp =====
       _calMonth: null,
@@ -4112,90 +4123,162 @@
       'telepase', 'movimientos', 'calTimeline',
     ];
 
-    // Guarda todos los campos en Supabase
+    // =====================================================
+    // PERSISTENCE — igual que vehículos/clientes/reservas
+    // Cada registro es una fila separada en Supabase
+    // =====================================================
+
+    const safeUpsert = async (table, key, data) => {
+      for (let i = 0; i < 3; i++) {
+        try {
+          await supa.upsert(table, key, data);
+          return true;
+        } catch(e) {
+          if (i < 2) await new Promise(r => setTimeout(r, 500 * (i + 1)));
+          else console.warn(`safeUpsert fallo ${table}/${key}:`, e);
+        }
+      }
+      return false;
+    };
+
     async function saveState() {
       _rtLastSave = Date.now();
 
-      const buildConfigData = () => {
-        const d = {};
-        ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones','telepase','movimientos','calTimeline'].forEach(k => {
-          d[k] = STATE[k];
-        });
-        d._savedAt = new Date().toISOString();
-        return d;
-      };
-
-      // 1) Guardar vdp_config con reintentos
-      let saved = false;
-      for (let attempt = 0; attempt < 3 && !saved; attempt++) {
-        try {
-          if (attempt > 0) await new Promise(r => setTimeout(r, 800 * attempt));
-          await supa.upsert('vdp_config', 'main_config', buildConfigData());
-          saved = true;
-          if (attempt > 0) console.log(`✅ saveState: vdp_config guardado en intento ${attempt + 1}`);
-        } catch (e) {
-          console.warn(`⚠️ saveState intento ${attempt + 1} falló:`, e);
-          if (attempt === 2) {
-            console.error('❌ saveState: todos los intentos fallaron');
-            if (typeof toast === 'function') toast('⚠️ No se pudo sincronizar. Revisá tu conexión.', 'error');
-          }
-        }
+      // 1) CONFIG BASE — empresa, precios, staff, origenes, novedades, tickets, pagos, planes
+      const cfgBase = {};
+      ['empresa','locations','additionals','charges','staff','origenes','reservaCounter',
+       'novedades','tickets','pagos','planes'].forEach(k => { cfgBase[k] = STATE[k]; });
+      cfgBase._savedAt = new Date().toISOString();
+      const okBase = await safeUpsert('vdp_config', 'main_config', cfgBase);
+      if (!okBase) {
+        if (typeof toast === 'function') toast('⚠️ No se pudo sincronizar. Revisá tu conexión.', 'error');
       }
 
-      // 2) Colecciones (vehicles/clients/empresas/reservations/blocks)
+      // 2) COLECCIONES CON TABLA PROPIA — cada registro = una fila
       try {
         await Promise.all([
-          ...STATE.vehicles.map(v => supa.upsert('vdp_vehicles', v.id, v)),
-          ...STATE.clients.map(c => supa.upsert('vdp_clients', c.id, c)),
-          ...STATE.empresas.map(e => supa.upsert('vdp_empresas', e.id, e)),
-          ...STATE.reservations.map(r => supa.upsert('vdp_reservations', r.id, r)),
-          ...STATE.blocks.map(b => supa.upsert('vdp_blocks', b.id, b)),
+          ...STATE.vehicles.map(v     => supa.upsert('vdp_vehicles',     v.id,  v)),
+          ...STATE.clients.map(c      => supa.upsert('vdp_clients',      c.id,  c)),
+          ...STATE.empresas.map(e     => supa.upsert('vdp_empresas',     e.id,  e)),
+          ...STATE.reservations.map(r => supa.upsert('vdp_reservations', r.id,  r)),
+          ...STATE.blocks.map(b       => supa.upsert('vdp_blocks',       b.id,  b)),
         ]);
-      } catch (e) {
-        console.warn('saveState: error guardando colecciones:', e);
-      }
+      } catch(e) { console.warn('saveState colecciones:', e); }
+
+      // 3) MÓDULOS EN vdp_config — cada registro = su propia fila con prefijo
+      //    tasks → task_{id}, infracciones → infra_{id},
+      //    telepase.movimientos → tp_{id}, telepase.liquidaciones → tpliq_{id},
+      //    movimientos → mov_{id}, calTimeline → ctl_{id}
+      try {
+        const rowsToSave = [
+          ...(STATE.tasks||[]).map(t         => safeUpsert('vdp_config', 'task_'  + t.id,   { _type:'task',    ...t })),
+          ...(STATE.infracciones||[]).map(i  => safeUpsert('vdp_config', 'infra_' + i.id,   { _type:'infra',   ...i })),
+          ...(STATE.telepase?.movimientos||[]).map(m => safeUpsert('vdp_config', 'tp_'    + m.id, { _type:'tp',     ...m })),
+          ...(STATE.telepase?.liquidaciones||[]).map(l => safeUpsert('vdp_config', 'tpliq_'+ l.id, { _type:'tpliq',  ...l })),
+          ...(STATE.movimientos||[]).map(m   => safeUpsert('vdp_config', 'mov_'   + m.id,   { _type:'mov',     ...m })),
+          ...(STATE.calTimeline||[]).map(e   => safeUpsert('vdp_config', 'ctl_'   + e.id,   { _type:'ctl',     ...e })),
+        ];
+        await Promise.all(rowsToSave);
+      } catch(e) { console.warn('saveState módulos:', e); }
     }
 
     // Carga todos los datos desde Supabase al arrancar
     async function loadState() {
       try {
-        const [cfgRow, vehicles, clients, empresas, reservations, blocks] = await Promise.all([
+        // Cargar todo en paralelo — config base + colecciones + módulos por prefijo
+        const [
+          cfgRow, vehicles, clients, empresas, reservations, blocks,
+          taskRows, infraRows, tpRows, tpliqRows, movRows, ctlRows
+        ] = await Promise.all([
           supa.get('vdp_config', 'main_config'),
           supa.getAll('vdp_vehicles'),
           supa.getAll('vdp_clients'),
           supa.getAll('vdp_empresas'),
           supa.getAll('vdp_reservations'),
           supa.getAll('vdp_blocks'),
+          supa.getAllByPrefix('task_'),
+          supa.getAllByPrefix('infra_'),
+          supa.getAllByPrefix('tp_'),
+          supa.getAllByPrefix('tpliq_'),
+          supa.getAllByPrefix('mov_'),
+          supa.getAllByPrefix('ctl_'),
         ]);
 
+        // CONFIG BASE
         let _novedadesEnConfig = false, _ticketsEnConfig = false;
         if (cfgRow?.data) {
           const d = cfgRow.data;
-          ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones','telepase','movimientos','calTimeline'].forEach(k => {
+          ['empresa','locations','additionals','charges','staff','origenes','reservaCounter',
+           'novedades','tickets','pagos','planes'].forEach(k => {
             if (d[k] !== undefined) STATE[k] = d[k];
           });
           _novedadesEnConfig = d.novedades !== undefined;
           _ticketsEnConfig   = d.tickets   !== undefined;
+
+          // Fallback: si las filas por prefijo están vacías, intentar desde main_config (versión vieja)
+          if (!taskRows.length  && Array.isArray(d.tasks))        STATE.tasks        = d.tasks;
+          if (!infraRows.length && Array.isArray(d.infracciones)) STATE.infracciones = d.infracciones;
+          if (!tpRows.length    && d.telepase?.movimientos)       STATE.telepase     = d.telepase;
+          if (!movRows.length   && Array.isArray(d.movimientos))  STATE.movimientos  = d.movimientos;
+          if (!ctlRows.length   && Array.isArray(d.calTimeline))  STATE.calTimeline  = d.calTimeline;
+
+          // Fallback desde ops_config / extra_config (versión intermedia)
         }
-        // Safe defaults for modules that may not exist in older saves
+
+        // MÓDULOS — reconstruir arrays desde filas individuales
+        const rowData = r => { const d = { ...r.data }; delete d._type; return d; };
+
+        if (taskRows.length)  STATE.tasks        = taskRows.map(rowData);
+        if (infraRows.length) STATE.infracciones = infraRows.map(rowData);
+        if (tpRows.length || tpliqRows.length) {
+          STATE.telepase = {
+            movimientos:   tpRows.map(rowData),
+            liquidaciones: tpliqRows.map(rowData),
+          };
+        }
+        if (movRows.length) STATE.movimientos = movRows.map(rowData);
+        if (ctlRows.length) STATE.calTimeline  = ctlRows.map(rowData);
+
+        // Intentar también desde ops_config y extra_config si las filas por prefijo están vacías
+        try {
+          const [opsCfg, extraCfg] = await Promise.all([
+            supa.get('vdp_config', 'ops_config'),
+            supa.get('vdp_config', 'extra_config'),
+          ]);
+          if (opsCfg?.data) {
+            if (!taskRows.length  && Array.isArray(opsCfg.data.tasks))        STATE.tasks        = opsCfg.data.tasks;
+            if (!infraRows.length && Array.isArray(opsCfg.data.infracciones)) STATE.infracciones = opsCfg.data.infracciones;
+          }
+          if (extraCfg?.data) {
+            if (!tpRows.length   && extraCfg.data.telepase)                    STATE.telepase    = extraCfg.data.telepase;
+            if (!movRows.length  && Array.isArray(extraCfg.data.movimientos))  STATE.movimientos = extraCfg.data.movimientos;
+            if (!ctlRows.length  && Array.isArray(extraCfg.data.calTimeline))  STATE.calTimeline = extraCfg.data.calTimeline;
+          }
+        } catch(e) { /* fallback opcional, no crítico */ }
+
+        // DEFAULTS SEGUROS
+        if (!_novedadesEnConfig) STATE.novedades = NOVEDADES_SEED.slice();
+        if (!_ticketsEnConfig)   STATE.tickets   = [];
+        if (!Array.isArray(STATE._readNovedades)) STATE._readNovedades = [];
+        if (!Array.isArray(STATE.tasks))        STATE.tasks        = [];
+        if (!Array.isArray(STATE.infracciones)) STATE.infracciones = [];
         if (!STATE.telepase || typeof STATE.telepase !== 'object') STATE.telepase = { movimientos: [], liquidaciones: [] };
         if (!Array.isArray(STATE.telepase.movimientos))   STATE.telepase.movimientos   = [];
         if (!Array.isArray(STATE.telepase.liquidaciones)) STATE.telepase.liquidaciones = [];
         if (!Array.isArray(STATE.movimientos))  STATE.movimientos  = [];
         if (!Array.isArray(STATE.calTimeline))  STATE.calTimeline  = [];
-        if (!_novedadesEnConfig) STATE.novedades = NOVEDADES_SEED.slice();
-        if (!_ticketsEnConfig)   STATE.tickets   = [];
-        if (!Array.isArray(STATE._readNovedades)) STATE._readNovedades = [];
 
-        // Las colecciones guardan el objeto completo en el campo `data`
+        // COLECCIONES
         STATE.vehicles     = vehicles.map(r => r.data);
         STATE.clients      = clients.map(r => r.data);
         STATE.empresas     = empresas.map(r => r.data);
         STATE.reservations = reservations.map(r => r.data);
         STATE.blocks       = blocks.map(r => r.data);
+
+        console.log(`✅ loadState OK — tasks:${STATE.tasks.length} infra:${STATE.infracciones.length} tp:${STATE.telepase.movimientos.length} mov:${STATE.movimientos.length}`);
         return true;
       } catch (e) {
-        console.error('No se pudo cargar desde Supabase:', e);
+        console.error('❌ loadState error:', e);
         return false;
       }
     }
@@ -4229,6 +4312,10 @@
     // Función para eliminar una row individual (vehículo, cliente, etc.)
     async function deleteRow(table, id) {
       try { await supa.delete(table, id); } catch (e) { console.error('deleteRow', table, id, e); }
+    }
+    // Eliminar un registro de módulo (task, infra, tp, mov, ctl)
+    async function deleteModuleRow(prefix, id) {
+      try { await supa.delete('vdp_config', prefix + id); } catch(e) { console.warn('deleteModuleRow', prefix, id, e); }
     }
 
     // ===== Export / Import / Reset desde la UI =====
