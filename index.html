@@ -2158,6 +2158,95 @@
       .act-card { padding: 12px 14px; }
       #actFiltros, #infraFiltros { gap: 5px; }
       .act-chip { font-size: 11px; padding: 4px 9px; }
+
+      /* ── FINANCIERO ── */
+      #finKpiPrincipal { grid-template-columns: repeat(2, 1fr) !important; }
+      .fin-card { padding: 10px 12px; }
+      .fin-card .value { font-size: 18px !important; }
+      .fin-card .label { font-size: 10px !important; }
+      #finMetodosStrip { flex-wrap: wrap; gap: 6px; }
+      #finMetodosStrip > div { flex: 1 1 calc(50% - 6px); min-width: 0; padding: 6px 10px; }
+      .fin-summary { grid-template-columns: repeat(2, 1fr) !important; }
+      /* Ocultar tablas grandes en mobile — usar scroll */
+      .fin-table-wrap, #finOrigenSection, #finMovSection, #finCajaSection { overflow-x: auto; }
+
+      /* ── MOVIMIENTOS KPIs ── */
+      #movKpiStrip { grid-template-columns: repeat(2, 1fr) !important; }
+
+      /* ── TELEPASE ── */
+      #tpKpiStrip { grid-template-columns: repeat(2, 1fr) !important; }
+      /* Sidebar de vehículos pasa a banda horizontal arriba */
+      #section-telepase > div[style*="grid-template-columns:220px"] {
+        grid-template-columns: 1fr !important;
+      }
+      #tpVehSidebar {
+        max-height: 90px !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+      }
+      #tpVehSidebar > div {
+        min-width: 110px;
+        flex: 0 0 auto;
+        border-right: 1px solid var(--border);
+        border-bottom: none !important;
+        padding: 8px 10px !important;
+        font-size: 12px !important;
+      }
+      /* Tabla TP — scroll horizontal */
+      #tpTablaWrap { overflow-x: auto; }
+      #tpLista table { min-width: 580px; }
+
+      /* ── CLIENTES — cards responsive ── */
+      .cards-grid { grid-template-columns: 1fr !important; }
+      .client-card, .empresa-card { padding: 12px !important; }
+      /* Modal de perfil de cliente — full screen */
+      #clienteModal .modal,
+      #empresaModal .modal {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100dvh !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+      }
+      #clienteModal .modal-body,
+      #empresaModal .modal-body { max-height: calc(100dvh - 110px) !important; }
+      /* Grid de datos en modales — una columna */
+      .info-grid, .client-info-grid { grid-template-columns: 1fr !important; }
+
+      /* ── SOPORTE ── */
+      /* Ocultar contador de tickets en el tab para que el título quede centrado */
+      .soporte-ticket-count { display: none !important; }
+      /* Chat: campo de escritura siempre visible */
+      .chat-composer,
+      #chatInputArea,
+      [id*="chatInput"],
+      [id*="chatComposer"] {
+        position: sticky !important;
+        bottom: 0 !important;
+        background: var(--surface) !important;
+        z-index: 10 !important;
+        padding: 8px !important;
+      }
+      /* El contenedor de mensajes no debe crecer más allá de la pantalla */
+      #chatDrawerMessages,
+      .chat-messages-wrap {
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
+        max-height: calc(100dvh - 200px) !important;
+      }
+
+      /* ── GENERAL ── */
+      /* Modales full screen en mobile */
+      .modal-backdrop .modal {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+      }
+      .modal-body { max-height: calc(100dvh - 120px) !important; }
     }
     .scrollbar::-webkit-scrollbar-thumb:hover { background: var(--grey); }
   </style>
@@ -2191,6 +2280,7 @@
         <div class="login-error" id="loginError" style="display: none;"></div>
         <button type="submit" id="loginBtn" class="btn btn-primary login-btn">Ingresar</button>
       </form>
+      <div style="text-align:right;margin-top:8px;font-size:11px;font-weight:700;color:var(--text-muted,#94a3b8);letter-spacing:0.04em;opacity:.7;">VDP 2.0</div>
     </div>
   </div>
 
@@ -4362,6 +4452,8 @@
           renderStats(); renderCalendar(); renderReservas(); renderClientes(); renderEmpresas(); renderFlota(); renderFinanciero(); renderLegend(); updateBadges(); renderStorageInfo(); updateNovedadesBadge(); updateSoporteBadge(); updatePagosBadge();
           try { updateTelePaseBadge(); } catch(e){}
           try { renderMovimientos(); } catch(e){}
+          // Show update banner once per device
+          setTimeout(() => { try { checkVdpUpdateBanner(); } catch(e){} }, 1500);
           toast('Backup importado correctamente', 'success');
         } catch (err) {
           console.error(err);
@@ -6612,7 +6704,7 @@
         '</div>' +
         '<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">' +
           '<div>' +
-            '<h3 style="font-size:13px;font-weight:700;margin:0 0 10px;color:var(--text-muted);text-transform:uppercase;">Tickets ('+filtered.length+')</h3>' +
+            '<h3 style="font-size:13px;font-weight:700;margin:0 0 10px;color:var(--text-muted);text-transform:uppercase;text-align:center;">Tickets</h3>' +
             '<div style="display:flex;flex-direction:column;gap:8px;">' +
               (filtered.length ? filtered.map(t=>renderTicketCard(t,true)).join('') :
                '<div style="padding:40px;text-align:center;color:var(--text-muted);background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-lg);">Sin tickets que coincidan.</div>') +
@@ -7678,6 +7770,7 @@
       if (cierreWrap) cierreWrap.style.display = isAdmin ? '' : 'none';
       if (isAdmin) renderMovCierre();
 
+      // Admin/soporte sees ALL movements; others only their own
       const myMovs = isAdmin ? (STATE.movimientos||[]) :
         (STATE.movimientos||[]).filter(m => m.responsable === (user?.display||user?.name));
 
@@ -7967,33 +8060,29 @@
             </div>
             ${vencBadgeHTML}
             <div class="card-stats">
-              <div class="card-stat">
+              <div class="card-stat" title="Reservas">
                 <div class="v">${reservas.length}</div>
-                <div class="l">Reservas</div>
+                <div class="l">📋</div>
               </div>
-              <div class="card-stat">
-                <div class="v">${fmt.money(total)}</div>
-                <div class="l">Total ganado</div>
+              <div class="card-stat" title="Total ganado">
+                <div class="v" style="font-size:13px;">${fmt.money(total)}</div>
+                <div class="l">💰</div>
               </div>
-              <div class="card-stat">
+              <div class="card-stat" title="Daños">
                 ${(() => {
                   const danos = STATE.vehicles.flatMap(v => (v.danos||[]).filter(d => d.clienteId === c.id));
                   const activos = danos.filter(d => !d.reparado);
                   const noCobrados = danos.filter(d => !d.cobrado).length;
                   const col = danos.length === 0 ? 'inherit' : (noCobrados > 0 ? '#EF4444' : (activos.length > 0 ? '#F59E0B' : '#10B981'));
-                  return '<div class="v" style="color:' + col + ';">' + danos.length + '</div>' +
-                    '<div class="l">Daños' + (noCobrados > 0 ? ' <span style=\'font-size:9px;background:#EF4444;color:#fff;padding:1px 4px;border-radius:6px;\'>' + noCobrados + ' s/cobrar</span>' : '') + '</div>';
+                  return '<div class="v" style="color:' + col + ';">' + danos.length + '</div><div class="l">🔧</div>';
                 })()}
               </div>
-              <div class="card-stat">
+              <div class="card-stat" title="Infracciones">
                 ${(() => {
                   const infras = (STATE.infracciones||[]).filter(i => i.clienteId === c.id);
                   const activas = infras.filter(i => infraGetEstadoOperativo(i) !== 'pagada').length;
                   const col = infras.length === 0 ? 'var(--text-muted)' : activas > 0 ? '#EF4444' : '#10B981';
-                  const label = activas > 0
-                    ? 'Infr. <span style=\'font-size:9px;background:#EF4444;color:#fff;padding:1px 4px;border-radius:6px;\'>' + activas + ' activa' + (activas > 1 ? 's' : '') + '</span>'
-                    : 'Infracciones';
-                  return '<div class="v" style="color:' + col + ';">' + infras.length + '</div><div class="l">' + label + '</div>';
+                  return '<div class="v" style="color:' + col + ';">' + infras.length + (activas > 0 ? '<span style=\'font-size:8px;background:#EF4444;color:#fff;padding:1px 3px;border-radius:5px;margin-left:2px;vertical-align:middle;\'>' + activas + '</span>' : '') + '</div><div class="l">📷</div>';
                 })()}
               </div>
             </div>
@@ -8369,19 +8458,56 @@
         ${id ? `
         <div class="modal-section">
           <div class="modal-section-title">Estadísticas</div>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-            <div style="padding: 12px; background: var(--surface-2); border-radius: var(--radius);">
-              <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Reservas totales</div>
-              <div style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 600; margin-top: 4px;">${reservas.length}</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+            <div style="padding:10px 12px;background:var(--surface-2);border-radius:var(--radius);display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px;">📋</span>
+              <div style="min-width:0;">
+                <div style="font-size:10px;color:var(--text-muted);font-weight:600;white-space:nowrap;">Reservas totales</div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:700;">${reservas.length}</div>
+              </div>
             </div>
-            <div style="padding: 12px; background: var(--surface-2); border-radius: var(--radius);">
-              <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Activas/Confirmadas</div>
-              <div style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 600; margin-top: 4px;">${reservas.filter(r => r.estado === 'confirmada').length}</div>
+            <div style="padding:10px 12px;background:var(--surface-2);border-radius:var(--radius);display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px;">✅</span>
+              <div style="min-width:0;">
+                <div style="font-size:10px;color:var(--text-muted);font-weight:600;white-space:nowrap;">Confirmadas</div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:700;">${reservas.filter(r=>r.estado==='confirmada').length}</div>
+              </div>
             </div>
-            <div style="padding: 12px; background: var(--surface-2); border-radius: var(--radius);">
-              <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Total ganado</div>
-              <div style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 600; margin-top: 4px; color: var(--green);">${fmt.money(total)}</div>
+            <div style="padding:10px 12px;background:var(--surface-2);border-radius:var(--radius);display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px;">💰</span>
+              <div style="min-width:0;overflow:hidden;">
+                <div style="font-size:10px;color:var(--text-muted);font-weight:600;white-space:nowrap;">Total ganado</div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;color:var(--green);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fmt.money(total)}</div>
+              </div>
             </div>
+            <div style="padding:10px 12px;background:var(--surface-2);border-radius:var(--radius);display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px;">📷</span>
+              <div style="min-width:0;">
+                <div style="font-size:10px;color:var(--text-muted);font-weight:600;white-space:nowrap;">Infracciones</div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:700;color:${(STATE.infracciones||[]).filter(i=>i.clienteId===c.id&&i.estadoCobro!=='cobrado').length>0?'#EF4444':'var(--text)'};">${(STATE.infracciones||[]).filter(i=>i.clienteId===c.id).length}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DOCUMENTACIÓN -->
+        <div class="modal-section">
+          <div class="modal-section-title">📎 Documentación</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${[
+              { label:'🪪 DNI / Pasaporte', key:'docDni' },
+              { label:'🚗 Licencia de conducir', key:'docLicencia' },
+              { label:'💳 Tarjeta — Frente', key:'docTarjetaFrente' },
+              { label:'💳 Tarjeta — Dorso', key:'docTarjetaDorso' },
+            ].map(doc => {
+              const val = (c[doc.key]||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+              return '<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;">'
+                + '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">' + doc.label + '</div>'
+                + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+                + '<input type="text" id="cl_' + doc.key + '" value="' + val + '" placeholder="Link Google Drive / URL..." style="flex:1;min-width:0;font-size:12.5px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);" />'
+                + (c[doc.key] ? '<button onclick="window.open(this.previousElementSibling.value,\'_blank\')" style="font-size:11.5px;padding:5px 10px;border:1px solid var(--vdp-blue);border-radius:var(--radius-sm);background:transparent;cursor:pointer;color:var(--vdp-blue);white-space:nowrap;flex-shrink:0;">👁 Ver</button>' : '')
+                + '</div></div>';
+            }).join('')}
           </div>
         </div>
         <div class="modal-section">
@@ -8555,6 +8681,10 @@
         tarjetaVencimiento: ($('clTarjetaVencimiento')?.value || '').trim(),
         tarjetaCvv: ($('clTarjetaCvv')?.value || '').trim(),
         observacion: $('clObservacion').value.trim(),
+        docDni:           (document.getElementById('cl_docDni')?.value || '').trim() || undefined,
+        docLicencia:      (document.getElementById('cl_docLicencia')?.value || '').trim() || undefined,
+        docTarjetaFrente: (document.getElementById('cl_docTarjetaFrente')?.value || '').trim() || undefined,
+        docTarjetaDorso:  (document.getElementById('cl_docTarjetaDorso')?.value || '').trim() || undefined,
         empresaId: ($('clEmpresaId')?.value || ''),
       };
       if (STATE._editingClienteId) {
@@ -10198,75 +10328,170 @@
           if (pen<=0) return;
           const c=(STATE.clients||[]).find(x=>x.id===r.clienteId);
           const v=(STATE.vehicles||[]).find(x=>x.id===r.vehicleId);
-          rows.push({cat:'🚗 Alquiler',detalle:`Contrato #${r.codigo||'?'} · ${c?.nombre||'—'} · ${v?.dominio||'?'}`,monto:pen,fecha:r.fechaEntrega||''});
+          rows.push({ cat:'🚗 Alquiler', monto:pen, fecha:r.fechaEntrega||'',
+            detalle:`#${r.codigo||'?'} · ${c?.nombre||'—'} · ${v?.dominio||'?'}`,
+            perfil: r.origen || r.gestionGenero || '—',
+            navFn: `irADetalle('reserva','${r.id}')`,
+          });
         });
         (STATE.infracciones||[]).filter(i=>i.estadoCobro!=='cobrado'&&i.estadoCobro!=='incobrable').forEach(i=>{
           const pen=Math.max(0,(parseFloat(i.monto)||0)-(parseFloat(i.montoCobrado)||0));
           if (pen<=0) return;
           const c=(STATE.clients||[]).find(x=>x.id===i.clienteId);
-          rows.push({cat:'🚦 Infracción',detalle:`Acta ${i.acta||'?'} · ${c?.nombre||'Sin cliente'}`,monto:pen,fecha:i.fecha||''});
+          rows.push({ cat:'🚦 Infracción', monto:pen, fecha:i.fecha||'',
+            detalle:`Acta ${i.acta||'?'} · ${c?.nombre||'Sin cliente'}`,
+            perfil: i.creadoPor || '—',
+            navFn: `irADetalle('infra','${i.id}')`,
+          });
         });
         (STATE.telepase?.movimientos||[]).filter(m=>m.estadoCobro==='pendiente'||m.estadoCobro==='parcial').forEach(m=>{
           const pen=Math.max(0,(parseFloat(m.importe)||0)-(parseFloat(m.montoCobrado)||0));
           if (pen<=0) return;
           const c=(STATE.clients||[]).find(x=>x.id===m.clienteId);
-          rows.push({cat:'🛣 TelePASE',detalle:`${m.ubicacion||'Peaje'} · ${c?.nombre||'Sin cliente'}`,monto:pen,fecha:m.fecha||''});
+          rows.push({ cat:'🛣 TelePASE', monto:pen, fecha:m.fecha||'',
+            detalle:`${m.ubicacion||'Peaje'} · ${c?.nombre||'Sin cliente'}`,
+            perfil: '—',
+            navFn: `irADetalle('tp','${m.id}')`,
+          });
         });
         (STATE.vehicles||[]).flatMap(v=>(v.danos||[]).map(d=>({...d,dominio:v.dominio}))).filter(d=>!d.cobrado&&!d.incobrable).forEach(d=>{
-          if(!(parseFloat(d.costo)>0)) return;
+          if(!(parseFloat(d.costo)>0)&&!(parseFloat(d.importeCobrado)>0)) return;
           const c=(STATE.clients||[]).find(x=>x.id===d.clienteId);
-          rows.push({cat:'🔧 Daño',detalle:`${d.descripcion||'Daño'} · ${d.dominio||'?'} · ${c?.nombre||'Sin cliente'}`,monto:parseFloat(d.costo)||0,fecha:d.fecha||''});
+          rows.push({ cat:'🔧 Daño', monto:parseFloat(d.costo||d.importeCobrado)||0, fecha:d.fecha||'',
+            detalle:`${d.descripcion||d.desc||'Daño'} · ${d.dominio||'?'} · ${c?.nombre||'Sin cliente'}`,
+            perfil: '—',
+            navFn: `irADetalle('flota','${d.vehicleId||''}')`,
+          });
         });
       } else {
         title.textContent = '🔴 Pérdida — Detalle completo';
         (STATE.reservations||[]).filter(r=>r.estado==='cancelada').forEach(r=>{
           const pen=totalReserva(r); if(pen<=0) return;
           const c=(STATE.clients||[]).find(x=>x.id===r.clienteId);
-          rows.push({cat:'🚗 Alquiler cancelado',detalle:`Contrato #${r.codigo||'?'} · ${c?.nombre||'—'}`,monto:pen,fecha:r.fechaEntrega||''});
+          rows.push({ cat:'🚗 Alquiler cancelado', monto:pen, fecha:r.fechaEntrega||'',
+            detalle:`#${r.codigo||'?'} · ${c?.nombre||'—'}`, perfil:r.origen||'—',
+            navFn:`irADetalle('reserva','${r.id}')` });
         });
         (STATE.infracciones||[]).filter(i=>i.estadoCobro==='incobrable').forEach(i=>{
           const c=(STATE.clients||[]).find(x=>x.id===i.clienteId);
-          rows.push({cat:'🚦 Infracción incobrable',detalle:`Acta ${i.acta||'?'} · ${c?.nombre||'Sin cliente'}`,monto:parseFloat(i.monto)||0,fecha:i.fecha||''});
+          rows.push({ cat:'🚦 Infracción incobrable', monto:parseFloat(i.monto)||0, fecha:i.fecha||'',
+            detalle:`Acta ${i.acta||'?'} · ${c?.nombre||'Sin cliente'}`, perfil:i.creadoPor||'—',
+            navFn:`irADetalle('infra','${i.id}')` });
         });
         (STATE.telepase?.movimientos||[]).filter(m=>m.estadoCobro==='incobrable').forEach(m=>{
           const c=(STATE.clients||[]).find(x=>x.id===m.clienteId);
-          rows.push({cat:'🛣 TelePASE incobrable',detalle:`${m.ubicacion||'Peaje'} · ${c?.nombre||'Sin cliente'}`,monto:parseFloat(m.importe)||0,fecha:m.fecha||''});
-        });
-        (STATE.vehicles||[]).flatMap(v=>(v.danos||[]).map(d=>({...d,dominio:v.dominio}))).filter(d=>d.incobrable).forEach(d=>{
-          const c=(STATE.clients||[]).find(x=>x.id===d.clienteId);
-          rows.push({cat:'🔧 Daño incobrable',detalle:`${d.descripcion||'Daño'} · ${d.dominio||'?'} · ${c?.nombre||'Sin cliente'}`,monto:parseFloat(d.costo)||0,fecha:d.fecha||''});
+          rows.push({ cat:'🛣 TelePASE incobrable', monto:parseFloat(m.importe)||0, fecha:m.fecha||'',
+            detalle:`${m.ubicacion||'Peaje'} · ${c?.nombre||'Sin cliente'}`, perfil:'—',
+            navFn:`irADetalle('tp','${m.id}')` });
         });
       }
 
       rows.sort((a,b)=>b.monto-a.monto);
       const total=rows.reduce((s,r)=>s+r.monto,0);
       const accentColor = tipo==='pendiente'?'#92400E':'#991B1B';
-      const bgColor = tipo==='pendiente'?'#FEF3C7':'#FEE2E2';
+      const bgColor     = tipo==='pendiente'?'#FEF3C7':'#FEE2E2';
+      const safeId = (s) => s.replace(/['"\\]/g,'').slice(0,60);
 
       body.innerHTML = !rows.length
         ? `<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;">Sin items registrados.</div>`
-        : `<div style="background:${bgColor};border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+        : `<div style="background:${bgColor};border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <span style="font-size:13px;font-weight:600;">${rows.length} item${rows.length!==1?'s':''}</span>
-            <span style="font-size:18px;font-weight:800;color:${accentColor};">${fmt$(total)}</span>
+            <span style="font-size:20px;font-weight:800;color:${accentColor};">${fmt$(total)}</span>
           </div>
+          <div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
             <thead><tr style="background:var(--surface-2,#F8F9FA);border-bottom:2px solid var(--border);">
-              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Categoría</th>
-              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Detalle</th>
-              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Fecha</th>
-              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Importe</th>
+              <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Categoría</th>
+              <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Detalle</th>
+              <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Perfil</th>
+              <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Fecha</th>
+              <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Importe</th>
+              <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;min-width:170px;">Acciones</th>
             </tr></thead>
             <tbody>${rows.map((r,i)=>`<tr style="${i%2===1?'background:var(--surface-2,#FAFAFA);':''}border-bottom:1px solid var(--border);">
-              <td style="padding:8px 12px;white-space:nowrap;">${r.cat}</td>
-              <td style="padding:8px 12px;font-weight:600;">${r.detalle}</td>
-              <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);">${r.fecha}</td>
-              <td style="padding:8px 12px;text-align:right;font-weight:700;color:${accentColor};">${fmt$(r.monto)}</td>
+              <td style="padding:8px 10px;white-space:nowrap;font-size:12px;">${r.cat}</td>
+              <td style="padding:8px 10px;font-weight:600;font-size:12px;">${r.detalle}</td>
+              <td style="padding:8px 10px;font-size:12px;color:var(--text-muted);">${r.perfil}</td>
+              <td style="padding:8px 10px;font-size:12px;color:var(--text-muted);white-space:nowrap;">${r.fecha}</td>
+              <td style="padding:8px 10px;text-align:right;font-weight:700;color:${accentColor};">${fmt$(r.monto)}</td>
+              <td style="padding:8px 10px;text-align:center;" onclick="event.stopPropagation()">
+                <button onclick="${r.navFn}" style="font-size:11px;padding:3px 8px;border:1px solid var(--vdp-blue);border-radius:var(--radius-sm);background:transparent;cursor:pointer;color:var(--vdp-blue);margin-right:4px;">→ Ver</button>
+                <button onclick="crearActividadDesdeDetalle('${safeId(r.detalle)}','${safeId(r.cat)}',${r.monto},'${r.fecha}','${safeId(r.perfil)}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--green);border-radius:var(--radius-sm);background:transparent;cursor:pointer;color:var(--green);">📋 Revisar</button>
+              </td>
             </tr>`).join('')}</tbody>
-          </table>`;
+          </table></div>`;
       modal.classList.add('open');
     }
-    window.toggleFinSection = toggleFinSection;
-    window.openFinDetalle   = openFinDetalle;
+    window.openFinDetalle = openFinDetalle;
+
+    function irADetalle(tipo, id) {
+      const m = document.getElementById('finDetalleModal');
+      if (m) m.classList.remove('open');
+      if (tipo === 'reserva') {
+        navigate('reservas');
+        setTimeout(() => { try { openReservaModal(id); } catch(e){} }, 350);
+      } else if (tipo === 'infra') {
+        navigate('infracciones');
+        setTimeout(() => { try { openInfraModal(id); } catch(e){} }, 350);
+      } else if (tipo === 'tp') {
+        navigate('telepase');
+        setTimeout(() => { try { openTpModal(id); } catch(e){} }, 350);
+      } else if (tipo === 'flota') {
+        navigate('flota');
+        setTimeout(() => { if (id) try { openFlotaModal(id); } catch(e){} }, 350);
+      }
+    }
+
+    // ── VDP 2.0 Update Banner ──
+    const VDP_VERSION_KEY = 'vdp_seen_update_v2';
+    function checkVdpUpdateBanner() {
+      try {
+        if (localStorage.getItem(VDP_VERSION_KEY)) return; // already seen
+        const banner = document.getElementById('vdpUpdateBanner');
+        if (banner) {
+          banner.style.display = 'flex';
+        }
+      } catch(e) {}
+    }
+    function vdpDoUpdate() {
+      try { localStorage.setItem(VDP_VERSION_KEY, '1'); } catch(e) {}
+      // Sign out and reload
+      try { supa.signOut && supa.signOut(); } catch(e) {}
+      STATE.currentUser = null;
+      const banner = document.getElementById('vdpUpdateBanner');
+      if (banner) banner.style.display = 'none';
+      const app = document.getElementById('app');
+      const login = document.getElementById('loginOverlay');
+      if (app)   app.style.display   = 'none';
+      if (login) login.style.display = '';
+      // Clear caches
+      try { caches.keys().then(keys => keys.forEach(k => caches.delete(k))); } catch(e) {}
+      setTimeout(() => location.reload(), 300);
+    }
+    window.vdpDoUpdate = vdpDoUpdate;
+
+    function crearActividadDesdeDetalle(detalle, categoria, monto, fecha, perfil) {
+      document.getElementById('finDetalleModal').classList.remove('open');
+      navigate('actividades');
+      setTimeout(() => {
+        openActModal();
+        setTimeout(() => {
+          const t  = document.getElementById('actTitulo');
+          const d  = document.getElementById('actDescripcion');
+          const rp = document.getElementById('actResponsable');
+          if (t) t.value = `Revisar ${categoria}: ${detalle}`;
+          if (d) d.value = `Pendiente a revisar:\nCategoría: ${categoria}\nDetalle: ${detalle}\nImporte: $${Math.round(monto).toLocaleString('es-AR')}\nFecha: ${fecha}\n\nNota:`;
+          // Auto-assign the profile that created this item
+          if (rp && perfil && perfil !== '—') {
+            const normalize = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+            const match = Array.from(rp.options).find(o => normalize(o.value) === normalize(perfil));
+            if (match) rp.value = match.value;
+          }
+          if (d) { d.focus(); d.selectionStart = d.value.length; }
+        }, 200);
+      }, 300);
+    }
+    window.crearActividadDesdeDetalle = crearActividadDesdeDetalle;
 
     function renderFinCaja() {
       const movs = STATE.movimientos || [];
@@ -10364,11 +10589,8 @@
       const { desde, hasta } = getFinDateRange();
 
       const allActive = STATE.reservations.filter(r => r.estado !== 'cancelada');
-
-      // Reservas del período (por fecha de entrega)
       const periodoRes = allActive.filter(r => r.fechaEntrega >= desde && r.fechaEntrega <= hasta);
 
-      // KPIs del período
       const facturado = periodoRes.reduce((s, r) => s + totalReserva(r), 0);
       const cobrado   = periodoRes.reduce((s, r) => s + (r.montoAbonado || 0), 0);
       const pendiente = allActive.reduce((s, r) => s + Math.max(0, totalReserva(r) - (r.montoAbonado || 0)), 0);
@@ -10381,22 +10603,21 @@
       const finActivasLbl = $('finActivasLabel');
       if (finActivasLbl) finActivasLbl.textContent = activas + ' activa' + (activas!==1?'s':'');
 
-      // ── Pérdida: incobrables de reservas + infracciones + telepase + daños
-      const perdidaReservas  = allActive.reduce((s,r) => s + (r.estado==='cancelada'?totalReserva(r):0), 0);
-      const perdidaInfra     = (STATE.infracciones||[]).filter(i=>i.estadoCobro==='incobrable').reduce((s,i)=>s+(parseFloat(i.monto)||0),0);
-      const perdidaTp        = (STATE.telepase?.movimientos||[]).filter(m=>m.estadoCobro==='incobrable').reduce((s,m)=>s+(parseFloat(m.importe)||0),0);
-      const perdidaDanos     = (STATE.vehicles||[]).flatMap(v=>(v.danos||[])).filter(d=>d.incobrable).reduce((s,d)=>s+(parseFloat(d.costo)||0),0);
-      const perdidaTotal     = perdidaReservas + perdidaInfra + perdidaTp + perdidaDanos;
+      // Pérdida
+      const perdidaReservas = allActive.reduce((s,r) => s + (r.estado==='cancelada'?totalReserva(r):0), 0);
+      const perdidaInfra    = (STATE.infracciones||[]).filter(i=>i.estadoCobro==='incobrable').reduce((s,i)=>s+(parseFloat(i.monto)||0),0);
+      const perdidaTp       = (STATE.telepase?.movimientos||[]).filter(m=>m.estadoCobro==='incobrable').reduce((s,m)=>s+(parseFloat(m.importe)||0),0);
+      const perdidaDanos    = (STATE.vehicles||[]).flatMap(v=>(v.danos||[])).filter(d=>d.incobrable).reduce((s,d)=>s+(parseFloat(d.costo)||0),0);
+      const perdidaTotal    = perdidaReservas + perdidaInfra + perdidaTp + perdidaDanos;
       const finPerdidaEl = $('finPerdida');
       if (finPerdidaEl) finPerdidaEl.textContent = fmt.money(perdidaTotal);
 
-      // ── Método de pago chips
+      // Chips por método de pago
       const metodosStrip = $('finMetodosStrip');
       if (metodosStrip) {
         const METODOS = ['Efectivo','Transferencia','Transferencia Claudio','Cuenta corriente','Débito','Crédito','USD','Mercado Pago'];
         const chips = METODOS.map(met => {
-          const total = periodoRes.filter(r => (r.metodoPago||r.formaPago||'') === met)
-            .reduce((s,r) => s+(r.montoAbonado||0), 0);
+          const total = periodoRes.filter(r => (r.metodoPago||r.formaPago||'') === met).reduce((s,r) => s+(r.montoAbonado||0), 0);
           if (!total) return null;
           return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:8px 14px;white-space:nowrap;">
             <div style="font-size:10.5px;font-weight:600;color:var(--text-muted);">${met}</div>
@@ -10406,12 +10627,36 @@
         metodosStrip.innerHTML = chips || `<div style="font-size:12.5px;color:var(--text-muted);padding:8px 0;">Sin cobros por método en el período</div>`;
       }
 
-      // ── Sección Movimientos Caja (solo admin)
+      // Movimientos Caja (solo admin)
       const cajaWrap = $('finCajaSection_wrap');
       if (cajaWrap) {
         cajaWrap.style.display = (STATE.currentUser?.role === 'admin' || STATE.currentUser?.role === 'soporte') ? '' : 'none';
         renderFinCaja();
       }
+
+      // ── RENDIMIENTO POR ORIGEN ──
+      const origenMap = {};
+      periodoRes.forEach(r => {
+        const org = r.origen || r.gestionGenero || 'Sin origen';
+        if (!origenMap[org]) origenMap[org] = { cant:0, fac:0, cob:0, pen:0 };
+        const fac = totalReserva(r);
+        const cob = r.montoAbonado || 0;
+        origenMap[org].cant++;
+        origenMap[org].fac += fac;
+        origenMap[org].cob += cob;
+        origenMap[org].pen += Math.max(0, fac - cob);
+      });
+      const origenRows = Object.entries(origenMap)
+        .map(([org, o]) => ({
+          org,
+          cant:   o.cant,
+          fac:    o.fac,
+          cob:    o.cob,
+          pen:    o.pen,
+          pct:    periodoRes.length ? Math.round(o.cant / periodoRes.length * 100) : 0,
+          ticket: o.cant ? Math.round(o.fac / o.cant) : 0,
+        }))
+        .sort((a, b) => b.fac - a.fac);
 
       $('finOrigenTbody').innerHTML = origenRows.map((o,i) => {
         const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
@@ -10431,18 +10676,18 @@
         </tr>`;
       }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:16px;">Sin datos en el período</td></tr>';
 
-      // ── Tabla MOVIMIENTOS ──
-      const rows = periodoRes.sort((a,b) => b.fechaEntrega.localeCompare(a.fechaEntrega));
+      // ── MOVIMIENTOS POR RESERVA ──
+      const rows = periodoRes.slice().sort((a,b) => b.fechaEntrega.localeCompare(a.fechaEntrega));
       $('finTbody').innerHTML = rows.map(r => {
-        const c  = STATE.clients.find(x => x.id === r.clienteId);
+        const c   = STATE.clients.find(x => x.id === r.clienteId);
         const emp = r.tipoReserva === 'Empresa' && r.empresaId ? STATE.empresas.find(e => e.id === r.empresaId) : null;
         const nombre = emp ? ('🏢 ' + emp.empresa) : (c?.nombre || '—');
         const v   = STATE.vehicles.find(x => x.id === r.vehicleId);
         const fac = totalReserva(r);
         const cob = r.montoAbonado || 0;
         const pen = Math.max(0, fac - cob);
-        const origen = r.gestionGenero || '—';
-        return `<tr>
+        const origen = r.origen || r.gestionGenero || '—';
+        return `<tr style="cursor:pointer;" onclick="navigate('reservas');setTimeout(()=>{const el=document.querySelector('#reservasTbody tr[data-id=\\'${r.id}\\']');if(el)el.scrollIntoView({behavior:'smooth'});},300)">
           <td>${nombre}</td>
           <td><span class="badge-status">${origen}</span></td>
           <td class="col-mono">${v?.dominio||'—'}</td>
@@ -11384,6 +11629,7 @@
           const match = (STATE.staff||[]).find(s => normalize(s) === normalize(userDisplay));
           if (match) selResp.value = match;
         }
+        // Admin always sees all by default (no auto-filter)
       }
       const tasks = STATE.tasks || [];
       const q    = (document.getElementById('actSearch')?.value || '').toLowerCase().trim();
@@ -11489,6 +11735,55 @@
       }
       document.getElementById('actModal').classList.add('open');
     }
+
+    function agregarPendientesAActividad() {
+      const resp = document.getElementById('actResponsable')?.value || '';
+      if (!resp) { toast('Primero asigná un responsable', 'error'); return; }
+      const lines = [`📋 PENDIENTES PARA: ${resp}\n`];
+      // Reservas pendientes del responsable (por origen)
+      const resConPendiente = (STATE.reservations||[]).filter(r =>
+        r.estado !== 'cancelada' && r.estado !== 'cerrada' &&
+        (r.origen === resp || r.gestionGenero === resp) &&
+        Math.max(0, totalReserva(r) - (r.montoAbonado||0)) > 0
+      );
+      if (resConPendiente.length) {
+        lines.push('🚗 Alquileres con saldo pendiente:');
+        resConPendiente.forEach(r => {
+          const c = (STATE.clients||[]).find(x=>x.id===r.clienteId);
+          lines.push(`  • #${r.codigo||'?'} ${c?.nombre||'—'} · ${fmt.dateShort(r.fechaEntrega)} · ${fmt.money(Math.max(0,totalReserva(r)-(r.montoAbonado||0)))}`);
+        });
+        lines.push('');
+      }
+      // Infracciones pendientes
+      const infPend = (STATE.infracciones||[]).filter(i =>
+        (i.estadoCobro === 'pendiente' || !i.estadoCobro) &&
+        (!i.creadoPor || i.creadoPor === resp || resp === 'Admin')
+      );
+      if (infPend.length) {
+        lines.push('🚦 Infracciones pendientes:');
+        infPend.forEach(i => {
+          const c = (STATE.clients||[]).find(x=>x.id===i.clienteId);
+          lines.push(`  • ${i.fecha||'?'} · ${i.ubicacion||i.acta||'?'} · ${c?.nombre||'—'} · ${fmt.money(parseFloat(i.monto)||0)}`);
+        });
+        lines.push('');
+      }
+      // TelePASE pendientes
+      const tpPend = (STATE.telepase?.movimientos||[]).filter(m => m.estadoCobro === 'pendiente' || m.estadoCobro === 'parcial');
+      if (tpPend.length) {
+        lines.push('🛣 Peajes TelePASE pendientes:');
+        tpPend.forEach(m => {
+          const c = (STATE.clients||[]).find(x=>x.id===m.clienteId);
+          lines.push(`  • ${m.fecha||'?'} · ${m.ubicacion||'?'} · ${c?.nombre||'Sin cliente'} · ${fmt.money(parseFloat(m.importe)||0)}`);
+        });
+      }
+      if (lines.length <= 1) { toast('No hay pendientes para este responsable', 'info'); return; }
+      const descEl = document.getElementById('actDescripcion');
+      if (descEl) {
+        descEl.value = (descEl.value ? descEl.value + '\n\n' : '') + lines.join('\n');
+      }
+      toast('Pendientes cargados en la descripción', 'success');
+    }
+    window.agregarPendientesAActividad = agregarPendientesAActividad;
 
     function toggleActTipoFields() {
       const tipo = document.getElementById('actTipoAct')?.value;
@@ -12495,6 +12790,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-danger" id="btnDeleteAct" style="margin-right:auto;display:none;" onclick="deleteAct()">Eliminar</button>
+        <button class="btn btn-secondary btn-sm" id="btnActRevisarPendientes" onclick="agregarPendientesAActividad()" title="Carga todos los pendientes del responsable en la descripción" style="font-size:12px;">📋 Revisar Pendientes</button>
         <button class="btn btn-secondary" onclick="closeActModal()">Cancelar</button>
         <button class="btn btn-primary" onclick="saveAct()">Guardar</button>
       </div>
@@ -12755,16 +13051,16 @@
       <span id="chatDrawerStatus" style="background:rgba(16,185,129,0.25);color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;flex-shrink:0;"></span>
     </div>
     <div id="chatDrawerControls" style="display:none;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border);"></div>
-    <div id="chatDrawerMessages" style="flex:1;overflow-y:auto;padding:16px 14px;background:var(--surface-2);display:flex;flex-direction:column;gap:8px;"></div>
+    <div id="chatDrawerMessages" style="flex:1;overflow-y:auto;padding:16px 14px;background:var(--surface-2);display:flex;flex-direction:column;gap:8px;min-height:0;"></div>
     <!-- Preview de foto antes de enviar -->
-    <div id="chatImagePreview" style="display:none;padding:8px 12px;background:var(--surface);border-top:1px solid var(--border);">
+    <div id="chatImagePreview" style="display:none;padding:8px 12px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;">
       <div style="display:flex;align-items:center;gap:8px;background:var(--surface-2);border-radius:8px;padding:6px 8px;">
         <img id="chatImagePreviewImg" src="" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0;" />
         <div style="flex:1;font-size:11.5px;color:var(--text-muted);">📷 Imagen lista para enviar</div>
         <button onclick="clearChatImage()" style="background:none;border:none;color:var(--text-soft);cursor:pointer;font-size:14px;padding:2px 6px;" title="Quitar">✕</button>
       </div>
     </div>
-    <div style="padding:10px 12px;border-top:1px solid var(--border);background:var(--surface);">
+    <div style="padding:10px 12px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;">
       <div style="display:flex;gap:6px;align-items:flex-end;">
         <input type="file" id="chatFileInput" accept="image/*" style="display:none;" onchange="onChatFileSelected(event)" />
         <button onclick="document.getElementById('chatFileInput').click()" title="Adjuntar imagen" style="background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border-strong);width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -12802,6 +13098,27 @@
       <button onclick="if(confirm('¿Limpiar todo el historial del Timeline? Esta acción no se puede deshacer.')){STATE.calTimeline=[];saveState();renderCalTimeline();}" style="margin-left:auto;font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text-muted);cursor:pointer;">🗑 Limpiar historial</button>
     </div>
     <div id="calTimelineList" style="flex:1;overflow-y:auto;padding:12px 16px;" class="scrollbar"></div>
+  </div>
+
+  <!-- ========== VDP 2.0 UPDATE BANNER ========== -->
+  <div id="vdpUpdateBanner" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;">
+    <div style="background:var(--surface,#fff);border-radius:16px;padding:28px 28px 24px;max-width:400px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.35);text-align:center;">
+      <div style="display:inline-flex;align-items:center;gap:6px;background:#C8102E;color:#fff;font-size:11px;font-weight:800;padding:4px 12px;border-radius:999px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:16px;">🚀 Nueva versión disponible</div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:36px;font-weight:800;letter-spacing:-0.03em;color:var(--text,#0F172A);margin-bottom:4px;">VDP 2.0</div>
+      <div style="font-size:14px;color:var(--text-muted,#64748b);margin-bottom:20px;line-height:1.5;">Mejoras importantes en sincronización, nuevos módulos y funciones.<br/>Actualizá para acceder a todo sin errores.</div>
+      <div style="background:var(--surface-2,#F8F9FA);border-radius:10px;padding:12px 16px;margin-bottom:20px;text-align:left;font-size:13px;">
+        <div style="font-weight:700;margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);">Incluye:</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div>✅ TelePASE, Movimientos de Caja, Timeline</div>
+          <div>✅ Persistencia mejorada (datos que no se pierden)</div>
+          <div>✅ Documentación en perfil de clientes</div>
+          <div>✅ Financiero con navegación directa al ítem</div>
+          <div>✅ Optimización móvil completa</div>
+        </div>
+      </div>
+      <button onclick="vdpDoUpdate()" style="width:100%;background:#C8102E;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;">Actualizar ahora</button>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-muted,#94a3b8);">Se cerrará la sesión para aplicar los cambios correctamente.</div>
+    </div>
   </div>
 
 </body>
