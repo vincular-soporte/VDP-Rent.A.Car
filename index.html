@@ -924,13 +924,19 @@
         min-height: 300px;
       }
     }
-    /* Ensure sticky left works inside overflow-x:auto container */
-    .cal-vehicle {
-      will-change: transform; /* force compositing layer for sticky */
-    }
+    /* ★ STICKY LEFT — columna Flota fija al scroll horizontal en desktop y mobile
+       En iOS Safari, sticky funciona solo si el padre tiene overflow-x:auto (no clip).
+       El truco: el .cal-vehicle tiene background propio para cubrir las celdas detrás. */
+    .cal-vehicle,
     .cal-corner {
+      position: sticky !important;
+      left: 0 !important;
       will-change: transform;
+      -webkit-transform: translateZ(0); /* force GPU layer on iOS */
+      z-index: 4;
+      background: var(--surface) !important; /* essential: covers scrolled content */
     }
+    .cal-corner { z-index: 6; }
     .calendar-grid {
       display: grid;
       min-width: 100%;
@@ -964,6 +970,7 @@
       z-index: 6;
       left: 0;
       top: 0;
+      position: sticky;
       color: var(--text);
       font-family: 'Bricolage Grotesque', sans-serif;
       font-size: 16px;
@@ -973,7 +980,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 2px 0 6px -2px rgba(15, 23, 42, 0.08);
+      box-shadow: 2px 0 8px -2px rgba(15, 23, 42, 0.15);
     }
 
     /* Bloques mensuales — fila superior con nombre del mes */
@@ -10419,7 +10426,24 @@
                 <button onclick="crearActividadDesdeDetalle('${safeId(r.detalle)}','${safeId(r.cat)}',${r.monto},'${r.fecha}','${safeId(r.perfil)}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--green);border-radius:var(--radius-sm);background:transparent;cursor:pointer;color:var(--green);">📋 Revisar</button>
               </td>
             </tr>`).join('')}</tbody>
-          </table></div>`;
+          </table></div>
+          <!-- Mobile card layout -->
+          <div class="fin-rows-mobile" style="display:none;flex-direction:column;gap:10px;margin-top:8px;">
+            ${rows.map(r=>`<div style="background:var(--surface-2,#F8F9FA);border-radius:var(--radius-lg);padding:12px 14px;border-left:4px solid ${accentColor};">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">${r.cat} · ${r.fecha}</div>
+                  <div style="font-weight:700;font-size:13px;line-height:1.3;">${r.detalle}</div>
+                  ${r.perfil && r.perfil!=='—'?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">👤 ${r.perfil}</div>`:''}
+                </div>
+                <div style="font-weight:800;font-size:16px;color:${accentColor};white-space:nowrap;flex-shrink:0;">${fmt$(r.monto)}</div>
+              </div>
+              <div style="display:flex;gap:6px;" onclick="event.stopPropagation()">
+                <button onclick="${r.navFn}" style="flex:1;font-size:12px;padding:7px 10px;border:1px solid var(--vdp-blue);border-radius:var(--radius-sm);background:transparent;cursor:pointer;color:var(--vdp-blue);font-weight:600;">→ Ver</button>
+                <button onclick="crearActividadDesdeDetalle('${safeId(r.detalle)}','${safeId(r.cat)}',${r.monto},'${r.fecha}','${safeId(r.perfil)}')" style="flex:1;font-size:12px;padding:7px 10px;border:1px solid var(--green);border-radius:var(--radius-sm);background:transparent;cursor:pointer;color:var(--green);font-weight:600;">📋 Revisar</button>
+              </div>
+            </div>`).join('')}
+          </div>`;
       modal.classList.add('open');
     }
     window.openFinDetalle = openFinDetalle;
@@ -13020,6 +13044,114 @@
     /* KPI grid responsive infracciones */
     #infraKpiStrip { grid-template-columns: repeat(4, 1fr) !important; }
     @media (max-width: 640px) {
+      #infraKpiStrip { grid-template-columns: repeat(2, 1fr) !important; }
+    }
+
+    /* ══════════════════════════════════════════════════
+       MOBILE POLISH — fixes from screenshots
+    ══════════════════════════════════════════════════ */
+    @media (max-width: 640px) {
+
+      /* ════ CALENDAR — FLOTA column sticky (iOS Safari fix) ════ */
+      /* Safari requires the sticky element to have explicit background
+         and the scroll container must be the direct overflow:auto parent */
+      .cal-vehicle {
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 4 !important;
+        background: var(--surface) !important;
+        -webkit-transform: translateZ(0) !important;
+        will-change: transform;
+        min-width: 78px !important;
+        max-width: 78px !important;
+        box-shadow: 3px 0 8px -2px rgba(0,0,0,0.15) !important;
+      }
+      .cal-corner {
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 6 !important;
+        background: var(--surface) !important;
+        -webkit-transform: translateZ(0) !important;
+        min-width: 78px !important;
+        max-width: 78px !important;
+        font-size: 11px !important;
+        box-shadow: 3px 0 8px -2px rgba(0,0,0,0.15) !important;
+      }
+      /* Keep dominio visible, hide model/cat on mobile */
+      .cal-vehicle .v-plate  { font-size: 9.5px !important; font-weight: 800 !important; }
+      .cal-vehicle .v-model  { display: none !important; }
+      .cal-vehicle .v-cat-tag { display: none !important; }
+
+      /* ════ CLIENTES — toolbar ════ */
+      #section-clientes .table-toolbar {
+        flex-direction: column !important;
+        gap: 6px !important;
+        padding: 10px 12px !important;
+        align-items: stretch !important;
+      }
+      #section-clientes .table-toolbar .search { width: 100% !important; }
+      #clientesEmpresaFilter { width: 100% !important; }
+      #section-clientes .table-toolbar .btn { width: 100% !important; }
+
+      /* Client card stats — compact icons */
+      .card-stats { gap: 10px !important; flex-wrap: wrap; }
+      .card-stat { min-width: 0; flex: 1 1 auto; text-align: center; }
+      .card-stat .v { font-size: 17px !important; }
+      .card-stat .l { font-size: 14px !important; }
+
+      /* ════ EMPRESAS — cut long names ════ */
+      .card h3, .card .name, .card .empresa-name,
+      [class*="empresa"] h3, [class*="empresa"] .name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: calc(100vw - 110px);
+        display: block;
+      }
+
+      /* ════ TELEPASE — KPIs en 2 columnas uniformes ════ */
+      #tpKpiStrip {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+      }
+      /* 7 items: 6 en pares + 1 solo → hacemos que el 7mo se extienda */
+      #tpKpiStrip > div:last-child:nth-child(odd) {
+        grid-column: span 2;
+      }
+      #tpKpiStrip > div {
+        padding: 10px 12px !important;
+      }
+      #tpKpiStrip > div > div:first-child { font-size: 10px !important; }
+      #tpKpiStrip > div > div:nth-child(2) { font-size: 17px !important; }
+
+      /* TelePASE tabla */
+      #tpLista { overflow-x: auto; }
+      #tpLista table { min-width: 480px; font-size: 11.5px !important; }
+      #tpLista table td, #tpLista table th { padding: 6px 8px !important; }
+      /* Ocultar N° operación (columna 2) en mobile */
+      #tpLista table td:nth-child(2),
+      #tpLista table th:nth-child(2) { display: none; }
+
+      /* ════ FINANCIERO — KPIs 2 col ════ */
+      #finKpiPrincipal { grid-template-columns: repeat(2, 1fr) !important; }
+      .fin-card { padding: 10px 12px !important; }
+      .fin-card .value { font-size: 16px !important; }
+      .fin-card .label { font-size: 10px !important; }
+
+      /* ════ FINANCIERO pendientes modal — tabla scrollable, columnas compactas ════ */
+      #finDetalleBody { padding: 0 !important; }
+      #finDetalleBody > div[style*="overflow-x:auto"] { overflow-x: auto; }
+      #finDetalleBody table { min-width: 560px; font-size: 11.5px !important; }
+      #finDetalleBody table td,
+      #finDetalleBody table th { padding: 6px 8px !important; }
+      /* Hide Perfil column on small screens */
+      #finDetalleBody table td:nth-child(3),
+      #finDetalleBody table th:nth-child(3) { display: none; }
+
+      /* ════ MOVIMIENTOS KPIs ════ */
+      #movKpiStrip { grid-template-columns: repeat(2, 1fr) !important; }
+
+      /* ════ INFRACCIONES KPIs ════ */
       #infraKpiStrip { grid-template-columns: repeat(2, 1fr) !important; }
     }
     /* Buscador cliente genérico — input estilo unificado */
