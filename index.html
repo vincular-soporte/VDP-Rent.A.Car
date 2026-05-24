@@ -2489,6 +2489,9 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   Timeline
                 </button>
+                <button class="icon-btn" id="btnPinFlota" onclick="togglePinFlota()" title="Fijar columna Flota" style="display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:12.5px;font-weight:600;border-radius:var(--radius-sm);">
+                  📌 Fijar Flota
+                </button>
                 <button class="icon-btn" id="btnLocationsConfig" title="Configurar lugares de retiro">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>
@@ -2503,8 +2506,11 @@
                 </div>
               </div>
             </div>
-            <div class="calendar-scroll scrollbar" id="calScroll">
-              <div class="calendar-grid" id="calGrid"></div>
+            <div class="calendar-scroll-wrap">
+              <div id="flotaPinOverlay"></div>
+              <div class="calendar-scroll scrollbar" id="calScroll">
+                <div class="calendar-grid" id="calGrid"></div>
+              </div>
             </div>
             <div class="legend" id="calLegend"></div>
           </div>
@@ -5291,6 +5297,8 @@
           scroller.scrollLeft = 0;
         }
       });
+      // Rebuild pin overlay if active
+      if (_flotaPinned) setTimeout(renderPinOverlay, 50);
     }
 
     // ===== Popover de acciones al click en celda vacía =====
@@ -10478,7 +10486,86 @@
       }
     }
 
-    // ── VDP 2.0 Update Banner ──
+    // ── Pin Flota overlay ──
+    let _flotaPinned = (() => { try { return localStorage.getItem('vdp_flota_pinned') === '1'; } catch(e){ return false; } })();
+
+    function togglePinFlota() {
+      _flotaPinned = !_flotaPinned;
+      try { localStorage.setItem('vdp_flota_pinned', _flotaPinned ? '1' : '0'); } catch(e){}
+      const btn = document.getElementById('btnPinFlota');
+      if (btn) {
+        btn.classList.toggle('pinned', _flotaPinned);
+        btn.title = _flotaPinned ? 'Desfijar columna Flota' : 'Fijar columna Flota';
+        btn.innerHTML = _flotaPinned
+          ? '<span style="font-size:14px;">📌</span> <span style="font-size:12.5px;font-weight:700;">Fijado</span>'
+          : '<span style="font-size:14px;">📌</span> <span style="font-size:12.5px;font-weight:600;">Fijar Flota</span>';
+      }
+      renderPinOverlay();
+    }
+
+    function renderPinOverlay() {
+      const overlay = document.getElementById('flotaPinOverlay');
+      const calScroll = document.getElementById('calScroll');
+      const calGrid = document.getElementById('calGrid');
+      if (!overlay || !calScroll || !calGrid) return;
+
+      if (!_flotaPinned) {
+        overlay.classList.remove('active');
+        overlay.innerHTML = '';
+        return;
+      }
+
+      const isMobile = window.innerWidth <= 768;
+      const vehColW = isMobile ? 110 : 145;
+      const dayColW = 34;
+      const rowH = 38;
+      const headerH = 62; // 24px month row + 38px day row
+      const sortedVehicles = sortVehicles(STATE.vehicles);
+
+      // Build overlay HTML
+      let html = `<div class="pin-corner" style="height:${headerH}px;width:${vehColW}px;">FLOTA</div>`;
+      sortedVehicles.forEach(v => {
+        const initials = (v.dominio || '?').slice(0, 2).toUpperCase();
+        const color = v.color || '#667eea';
+        html += `<div class="pin-row" style="height:${rowH}px;width:${vehColW}px;"
+          onclick="openFlotaModal('${v.id}')" title="${v.dominio} — ${v.modelo||''}">
+          <div style="width:26px;height:26px;border-radius:6px;background:${color};color:#fff;
+            display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;
+            flex-shrink:0;">${initials}</div>
+          <div style="min-width:0;flex:1;">
+            <div class="pin-plate">${v.dominio}</div>
+            ${v.modelo ? `<div style="font-size:9px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.modelo}</div>` : ''}
+          </div>
+        </div>`;
+      });
+
+      overlay.innerHTML = html;
+      overlay.classList.add('active');
+      overlay.style.width = vehColW + 'px';
+      const totalH = headerH + sortedVehicles.length * rowH;
+      overlay.style.height = totalH + 'px';
+
+      // Sync vertical scroll: when calScroll scrolls, overlay scrolls too
+      calScroll.removeEventListener('scroll', _pintScrollHandler);
+      _pintScrollHandler = () => {
+        overlay.style.top = -calScroll.scrollTop + 'px';
+        // Ensure overlay stays horizontally at left:0 regardless of horizontal scroll
+        overlay.style.left = calScroll.scrollLeft + 'px';
+      };
+      calScroll.addEventListener('scroll', _pintScrollHandler);
+    }
+    let _pintScrollHandler = () => {};
+
+    function initPinFlota() {
+      const btn = document.getElementById('btnPinFlota');
+      if (!btn) return;
+      if (_flotaPinned) {
+        btn.classList.add('pinned');
+        btn.innerHTML = '<span style="font-size:14px;">📌</span> <span style="font-size:12.5px;font-weight:700;">Fijado</span>';
+      }
+    }
+    window.togglePinFlota = togglePinFlota;
+    window.renderPinOverlay = renderPinOverlay;
     const VDP_VERSION_KEY = 'vdp_seen_update_v2';
     function checkVdpUpdateBanner() {
       try {
@@ -10900,8 +10987,8 @@
       try { renderPagos(); }         catch(e) { console.error(e); }
       // Iniciar sincronización realtime
       try { startRealtime(); }       catch(e) { console.error('Realtime init error:', e); }
-      // Polling fallback cada 10s por si el WS no está disponible
       try { startPollingFallback(); } catch(e) { console.error('Polling fallback error:', e); }
+      try { initPinFlota(); }         catch(e) { console.error('Pin flota init err:', e); }
       // Si no cargaron los datos, avisar
       if (!loaded) {
         toast('⚠ No se pudieron cargar los datos. Revisá tu conexión.', 'error');
@@ -13179,6 +13266,34 @@
       border-color: var(--vdp-red);
       box-shadow: 0 0 0 3px var(--vdp-red-soft);
     }
+
+    /* ── Pin Flota overlay ── */
+    .calendar-scroll-wrap { position: relative; }
+    #flotaPinOverlay {
+      display: none; position: absolute;
+      top: 0; left: 0; z-index: 20;
+      background: var(--surface);
+      border-right: 2.5px solid var(--vdp-red);
+      box-shadow: 4px 0 16px -4px rgba(0,0,0,0.22);
+      overflow: hidden; pointer-events: none;
+    }
+    #flotaPinOverlay.active { display: block; pointer-events: auto; }
+    .pin-corner {
+      background: linear-gradient(135deg,var(--surface),var(--surface-2));
+      border-bottom: 2px solid var(--border-strong);
+      font-family: 'Bricolage Grotesque',sans-serif;
+      font-size: 12px; font-weight: 800; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pin-row {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 8px; gap: 6px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .pin-row:hover { background: var(--vdp-red-soft,#FEE2E2); }
+    .pin-plate { font-weight: 800; font-size: 11px; font-family: 'Bricolage Grotesque',sans-serif; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #btnPinFlota.pinned { background: var(--vdp-red) !important; color: #fff !important; }
   </style>
 
   <!-- CHAT DRAWER -->
