@@ -1109,7 +1109,7 @@
       grid-template-columns: 1fr auto;
       align-items: center;
       gap: 4px;
-      min-height: 38px;
+      min-height: 44px;
       box-shadow: 2px 0 6px -2px rgba(15, 23, 42, 0.08);
     }
     .cal-vehicle .v-info {
@@ -1153,7 +1153,7 @@
     .cal-cell {
       border-bottom: 1px solid var(--border-strong);
       border-right: 1px solid var(--border);
-      min-height: 38px;
+      min-height: 44px;
       background: var(--surface);
       position: relative;
       transition: background 0.1s ease;
@@ -5039,8 +5039,8 @@
       const isMobile = window.innerWidth <= 768;
       const dayColW  = 34;
       const vehColW  = isMobile ? 82 : 140;
-      const rowH     = 38;
-      const headerH  = 62;  // 24px meses + 38px días
+      const rowH     = isMobile ? 48 : 44;
+      const headerH  = isMobile ? 60 : 62; // 24px meses + 36/38px días
 
       const nVehicles = sortedVehicles.length || 1;
 
@@ -5051,10 +5051,10 @@
       leftPanel.style.gridTemplateRows = `${headerH}px repeat(${nVehicles}, ${rowH}px)`;
       leftPanel.style.alignItems       = 'stretch';
 
-      // ── RIGHT GRID: matching rows (24px month header + 38px day header + n vehicle rows) ──
+      // ── RIGHT GRID: matching rows (24px month header + rowH day header + n vehicle rows) ──
       grid.style.display             = 'grid';
       grid.style.gridTemplateColumns = `repeat(${totalDays}, ${dayColW}px)`;
-      grid.style.gridTemplateRows    = `24px ${rowH}px repeat(${nVehicles}, ${rowH}px)`;
+      grid.style.gridTemplateRows    = `${headerH - rowH}px ${rowH}px repeat(${nVehicles}, ${rowH}px)`;
 
       // Pre-calcular bloques de mes
       const monthBlocks = [];
