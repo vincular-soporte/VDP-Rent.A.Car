@@ -4324,28 +4324,25 @@
         ]);
 
         // CONFIG BASE
-        let _novedadesEnConfig = false, _ticketsEnConfig = false;
+        let _ticketsEnConfig = false;
         if (cfgRow?.data) {
           const d = cfgRow.data;
           ['empresa','locations','additionals','charges','staff','origenes','reservaCounter',
-           'novedades','tickets','pagos','planes'].forEach(k => {
+           'tickets','pagos','planes'].forEach(k => {
             if (d[k] !== undefined) STATE[k] = d[k];
           });
-          _novedadesEnConfig = d.novedades !== undefined;
-          _ticketsEnConfig   = d.tickets   !== undefined;
+          _ticketsEnConfig = d.tickets !== undefined;
 
-          // Fallback: si las filas por prefijo están vacías, intentar desde main_config (versión vieja)
+          // Fallback desde main_config (versión vieja que tenía todo en un blob)
           if (!novRows.length   && Array.isArray(d.novedades))    STATE.novedades    = d.novedades;
           if (!taskRows.length  && Array.isArray(d.tasks))        STATE.tasks        = d.tasks;
           if (!infraRows.length && Array.isArray(d.infracciones)) STATE.infracciones = d.infracciones;
           if (!tpRows.length    && d.telepase?.movimientos)       STATE.telepase     = d.telepase;
           if (!movRows.length   && Array.isArray(d.movimientos))  STATE.movimientos  = d.movimientos;
           if (!ctlRows.length   && Array.isArray(d.calTimeline))  STATE.calTimeline  = d.calTimeline;
-
-          // Fallback desde ops_config / extra_config (versión intermedia)
         }
 
-        // MÓDULOS — reconstruir arrays desde filas individuales
+        // MÓDULOS — reconstruir arrays desde filas individuales (tienen prioridad sobre el blob)
         const rowData = r => { const d = { ...r.data }; delete d._type; return d; };
 
         if (novRows.length)   STATE.novedades    = novRows.map(rowData);
@@ -4360,7 +4357,7 @@
         if (movRows.length) STATE.movimientos = movRows.map(rowData);
         if (ctlRows.length) STATE.calTimeline  = ctlRows.map(rowData);
 
-        // Intentar también desde ops_config y extra_config si las filas por prefijo están vacías
+        // Fallback desde ops_config / extra_config (versiones intermedias)
         try {
           const [opsCfg, extraCfg] = await Promise.all([
             supa.get('vdp_config', 'ops_config'),
@@ -4375,10 +4372,13 @@
             if (!movRows.length  && Array.isArray(extraCfg.data.movimientos))  STATE.movimientos = extraCfg.data.movimientos;
             if (!ctlRows.length  && Array.isArray(extraCfg.data.calTimeline))  STATE.calTimeline = extraCfg.data.calTimeline;
           }
-        } catch(e) { /* fallback opcional, no crítico */ }
+        } catch(e) { /* fallback opcional */ }
 
         // DEFAULTS SEGUROS
-        if (!_novedadesEnConfig) STATE.novedades = NOVEDADES_SEED.slice();
+        // ⚠️ novedades: solo usar seed si NO hay filas nov_ Y NO hay datos en ningún fallback
+        if (!Array.isArray(STATE.novedades) || STATE.novedades.length === 0) {
+          STATE.novedades = NOVEDADES_SEED.slice();
+        }
         if (!_ticketsEnConfig)   STATE.tickets   = [];
         if (!Array.isArray(STATE._readNovedades)) STATE._readNovedades = [];
         if (!Array.isArray(STATE.tasks))        STATE.tasks        = [];
