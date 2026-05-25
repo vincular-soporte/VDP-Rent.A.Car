@@ -5074,19 +5074,21 @@
 
       // ── LEFT PANEL HTML ──
       let leftHtml = '';
-      // Corner cell — same height as header (24+38=62px)
+      // Corner cell
       leftHtml += `<div class="cal-corner" style="height:${headerH}px;display:flex;align-items:center;justify-content:center;border-bottom:2px solid var(--border-strong);">Flota</div>`;
       // Vehicle rows
       if (sortedVehicles.length === 0) {
         leftHtml += `<div class="cal-vehicle" style="height:${rowH}px;color:var(--text-soft);font-style:italic;justify-content:center;">Sin unidades</div>`;
       } else {
         sortedVehicles.forEach(v => {
-          leftHtml += `<div class="cal-vehicle" style="height:${rowH}px;">
-            <div class="v-info">
-              <span class="v-plate">${v.dominio}</span>
-              <span class="v-model">${v.modelo || ''}</span>
+          const modelo = (v.modelo || '').trim();
+          // Short model: max 10 chars to fit in the narrow column
+          const modeloShort = modelo.length > 12 ? modelo.slice(0, 11) + '…' : modelo;
+          leftHtml += `<div class="cal-vehicle" style="height:${rowH}px;padding:0 6px;">
+            <div class="v-info" style="flex:1;min-width:0;overflow:hidden;">
+              <span class="v-plate" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.dominio}</span>
+              ${modeloShort ? `<span style="display:block;font-size:8.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;margin-top:1px;">${modeloShort}</span>` : ''}
             </div>
-            <span class="v-cat-tag" title="${v.categoria}">${shortCat(v.categoria)}</span>
           </div>`;
         });
       }
