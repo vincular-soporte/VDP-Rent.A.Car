@@ -4259,10 +4259,11 @@
     async function saveState() {
       _rtLastSave = Date.now();
 
-      // 1) CONFIG BASE — empresa, precios, staff, origenes, novedades, tickets, pagos, planes
+      // 1) CONFIG BASE — empresa, precios, staff, origenes, tickets, pagos, planes
+      //    (novedades se guarda por fila individual abajo para evitar pérdidas)
       const cfgBase = {};
       ['empresa','locations','additionals','charges','staff','origenes','reservaCounter',
-       'novedades','tickets','pagos','planes'].forEach(k => { cfgBase[k] = STATE[k]; });
+       'tickets','pagos','planes'].forEach(k => { cfgBase[k] = STATE[k]; });
       cfgBase._savedAt = new Date().toISOString();
       const okBase = await safeUpsert('vdp_config', 'main_config', cfgBase);
       if (!okBase) {
@@ -4286,6 +4287,8 @@
       //    movimientos → mov_{id}, calTimeline → ctl_{id}
       try {
         const rowsToSave = [
+          // Novedades — una fila por novedad, evita pérdidas por tamaño del config
+          ...(STATE.novedades||[]).map(n => safeUpsert('vdp_config', 'nov_' + n.id, { _type:'novedad', ...n })),
           ...(STATE.tasks||[]).map(t         => safeUpsert('vdp_config', 'task_'  + t.id,   { _type:'task',    ...t })),
           ...(STATE.infracciones||[]).map(i  => safeUpsert('vdp_config', 'infra_' + i.id,   { _type:'infra',   ...i })),
           ...(STATE.telepase?.movimientos||[]).map(m => safeUpsert('vdp_config', 'tp_'    + m.id, { _type:'tp',     ...m })),
@@ -4303,7 +4306,7 @@
         // Cargar todo en paralelo — config base + colecciones + módulos por prefijo
         const [
           cfgRow, vehicles, clients, empresas, reservations, blocks,
-          taskRows, infraRows, tpRows, tpliqRows, movRows, ctlRows
+          novRows, taskRows, infraRows, tpRows, tpliqRows, movRows, ctlRows
         ] = await Promise.all([
           supa.get('vdp_config', 'main_config'),
           supa.getAll('vdp_vehicles'),
@@ -4311,6 +4314,7 @@
           supa.getAll('vdp_empresas'),
           supa.getAll('vdp_reservations'),
           supa.getAll('vdp_blocks'),
+          supa.getAllByPrefix('nov_'),
           supa.getAllByPrefix('task_'),
           supa.getAllByPrefix('infra_'),
           supa.getAllByPrefix('tp_'),
@@ -4331,6 +4335,7 @@
           _ticketsEnConfig   = d.tickets   !== undefined;
 
           // Fallback: si las filas por prefijo están vacías, intentar desde main_config (versión vieja)
+          if (!novRows.length   && Array.isArray(d.novedades))    STATE.novedades    = d.novedades;
           if (!taskRows.length  && Array.isArray(d.tasks))        STATE.tasks        = d.tasks;
           if (!infraRows.length && Array.isArray(d.infracciones)) STATE.infracciones = d.infracciones;
           if (!tpRows.length    && d.telepase?.movimientos)       STATE.telepase     = d.telepase;
@@ -4343,6 +4348,7 @@
         // MÓDULOS — reconstruir arrays desde filas individuales
         const rowData = r => { const d = { ...r.data }; delete d._type; return d; };
 
+        if (novRows.length)   STATE.novedades    = novRows.map(rowData);
         if (taskRows.length)  STATE.tasks        = taskRows.map(rowData);
         if (infraRows.length) STATE.infracciones = infraRows.map(rowData);
         if (tpRows.length || tpliqRows.length) {
