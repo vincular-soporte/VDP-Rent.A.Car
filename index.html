@@ -2489,9 +2489,6 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   Timeline
                 </button>
-                <button class="icon-btn" id="btnPinFlota" onclick="togglePinFlota()" title="Fijar columna Flota" style="display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:12.5px;font-weight:600;border-radius:var(--radius-sm);">
-                  📌 Fijar Flota
-                </button>
                 <button class="icon-btn" id="btnLocationsConfig" title="Configurar lugares de retiro">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>
@@ -5069,7 +5066,7 @@
 
       let html = '';
       // Esquina FLOTA (ocupa 2 filas)
-      html += `<div class="cal-corner">Flota</div>`;
+      html += `<div class="cal-corner" id="calCornerFlota" onclick="togglePinFlota()" title="Clic para fijar/desfijar esta columna" style="cursor:pointer;user-select:none;transition:background .2s;">${_flotaPinned ? '📌' : 'Flota'}</div>`;
 
       // Fila 1: bloques mensuales con nombre del mes + año
       monthBlocks.forEach(b => {
@@ -5283,22 +5280,22 @@
       // Period label (mes activo)
       $('calPeriod').textContent = `${MONTH_NAMES[monthStart.getMonth()]} ${monthStart.getFullYear()}`;
 
-      // Auto-scroll: HOY queda a 3 casillas desde la columna FLOTA (solo 3 días hacia atrás visibles)
+      // Auto-scroll: HOY centrado con 5 días antes visibles
       requestAnimationFrame(() => {
         const scroller = $('calScroll');
+        if (!scroller) return;
         if (today >= rangeStart && today <= rangeEnd) {
           const todayDayIdx = daysBetween(rangeStart, today);
-          const todayX = vehColW + todayDayIdx * dayColW;
-          // Queremos que HOY quede a 3 días desde el borde izquierdo del área de días (vehColW)
-          // Es decir: scrollLeft = todayX - vehColW - 3*dayColW
-          const targetX = todayX - vehColW - 3 * dayColW;
+          // scrollLeft so that today appears 5 columns after the vehCol
+          // i.e. 5 days are visible to the left of today
+          const targetX = vehColW + todayDayIdx * dayColW - vehColW - 5 * dayColW;
           scroller.scrollLeft = Math.max(0, targetX);
         } else {
           scroller.scrollLeft = 0;
         }
       });
       // Rebuild pin overlay if active
-      if (_flotaPinned) setTimeout(renderPinOverlay, 50);
+      if (_flotaPinned) setTimeout(renderPinOverlay, 80);
     }
 
     // ===== Popover de acciones al click en celda vacía =====
@@ -10492,13 +10489,12 @@
     function togglePinFlota() {
       _flotaPinned = !_flotaPinned;
       try { localStorage.setItem('vdp_flota_pinned', _flotaPinned ? '1' : '0'); } catch(e){}
-      const btn = document.getElementById('btnPinFlota');
-      if (btn) {
-        btn.classList.toggle('pinned', _flotaPinned);
-        btn.title = _flotaPinned ? 'Desfijar columna Flota' : 'Fijar columna Flota';
-        btn.innerHTML = _flotaPinned
-          ? '<span style="font-size:14px;">📌</span> <span style="font-size:12.5px;font-weight:700;">Fijado</span>'
-          : '<span style="font-size:14px;">📌</span> <span style="font-size:12.5px;font-weight:600;">Fijar Flota</span>';
+      // Update the corner cell
+      const corner = document.getElementById('calCornerFlota');
+      if (corner) {
+        corner.textContent = _flotaPinned ? '📌' : 'Flota';
+        corner.style.background = _flotaPinned ? 'var(--vdp-red)' : '';
+        corner.style.color = _flotaPinned ? '#fff' : '';
       }
       renderPinOverlay();
     }
@@ -10522,8 +10518,8 @@
       const headerH = 62; // 24px month row + 38px day row
       const sortedVehicles = sortVehicles(STATE.vehicles);
 
-      // Build overlay HTML
-      let html = `<div class="pin-corner" style="height:${headerH}px;width:${vehColW}px;">FLOTA</div>`;
+      // Build overlay HTML — pin-corner positioned exactly over calCornerFlota
+      let html = `<div class="pin-corner" style="height:${headerH}px;width:${vehColW}px;background:var(--vdp-red);color:#fff;cursor:pointer;" onclick="togglePinFlota()">📌</div>`;
       sortedVehicles.forEach(v => {
         const initials = (v.dominio || '?').slice(0, 2).toUpperCase();
         const color = v.color || '#667eea';
@@ -10557,11 +10553,17 @@
     let _pintScrollHandler = () => {};
 
     function initPinFlota() {
-      const btn = document.getElementById('btnPinFlota');
-      if (!btn) return;
+      // Corner cell is rendered by renderCalendar — update it if already pinned
       if (_flotaPinned) {
-        btn.classList.add('pinned');
-        btn.innerHTML = '<span style="font-size:14px;">📌</span> <span style="font-size:12.5px;font-weight:700;">Fijado</span>';
+        setTimeout(() => {
+          const corner = document.getElementById('calCornerFlota');
+          if (corner) {
+            corner.textContent = '📌';
+            corner.style.background = 'var(--vdp-red)';
+            corner.style.color = '#fff';
+          }
+          renderPinOverlay();
+        }, 100);
       }
     }
     window.togglePinFlota = togglePinFlota;
