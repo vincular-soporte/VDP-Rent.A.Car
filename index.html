@@ -2503,10 +2503,13 @@
                 </div>
               </div>
             </div>
-            <div class="calendar-scroll-wrap">
-              <div id="flotaPinOverlay"></div>
-              <div class="calendar-scroll scrollbar" id="calScroll">
-                <div class="calendar-grid" id="calGrid"></div>
+            <!-- Split: columna izquierda FIJA + grilla de fechas scrolleable -->
+            <div style="display:flex;overflow:hidden;width:100%;" id="calSplitWrap">
+              <!-- Panel izquierdo: patentes siempre visibles -->
+              <div id="calLeftPanel" style="flex-shrink:0;background:var(--surface);border-right:2px solid var(--border-strong);box-shadow:4px 0 12px -4px rgba(0,0,0,0.15);z-index:5;overflow:hidden;"></div>
+              <!-- Panel derecho: solo fechas y reservas, scrollea horizontalmente -->
+              <div id="calScroll" class="scrollbar" style="flex:1;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;min-width:0;">
+                <div id="calGrid"></div>
               </div>
             </div>
             <div class="legend" id="calLegend"></div>
@@ -5029,51 +5032,75 @@
       const todayLabel = today.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       $('calTodayDate').innerHTML = `Hoy es <strong>${todayLabel}</strong>`;
 
-      const grid = $('calGrid');
-      const isMobile = window.innerWidth <= 768;
-      const dayColW = 34;
-      const vehColW = isMobile ? 110 : 145;
-      const rowH = 38;
-      grid.style.gridTemplateColumns = `${vehColW}px repeat(${totalDays}, ${dayColW}px)`;
-      // 2 filas de header: meses + días
-      grid.style.gridTemplateRows = `24px 38px repeat(${sortedVehicles.length || 1}, ${rowH}px)`;
+      const leftPanel = $('calLeftPanel');
+      const grid      = $('calGrid');
+      if (!leftPanel || !grid) return;
 
-      // Pre-calcular bloques de mes (start col + span) y asignar tinte por mes calendario
-      // El tinte es estable para un mes dado en cualquier año (abril siempre azul, mayo siempre verde, etc.)
+      const isMobile = window.innerWidth <= 768;
+      const dayColW  = 34;
+      const vehColW  = isMobile ? 100 : 140;
+      const rowH     = 38;
+      const headerH  = 62;  // 24px meses + 38px días
+
+      const totalRows = 2 + (sortedVehicles.length || 1);
+
+      // ── LEFT PANEL: corner + vehicle rows (never scrolls) ──
+      leftPanel.style.width  = vehColW + 'px';
+      leftPanel.style.minWidth = vehColW + 'px';
+
+      // ── RIGHT GRID: month headers + day headers + cells (scrolls horizontally) ──
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = `repeat(${totalDays}, ${dayColW}px)`;
+      grid.style.gridTemplateRows    = `24px 38px repeat(${sortedVehicles.length || 1}, ${rowH}px)`;
+
+      // Pre-calcular bloques de mes
       const monthBlocks = [];
-      let currentBlock = null;
+      let currentBlock  = null;
       for (let i = 0; i < totalDays; i++) {
         const d = addDays(rangeStart, i);
         const m = d.getMonth();
         const y = d.getFullYear();
         if (!currentBlock || currentBlock.m !== m || currentBlock.y !== y) {
           if (currentBlock) monthBlocks.push(currentBlock);
-          // tinte estable: mes % 6 (0=ene azul, 1=feb verde, 2=mar ámbar, 3=abr rosa, 4=may violeta, 5=jun turquesa, repite)
-          currentBlock = { m, y, startCol: i + 2, span: 1, name: MONTH_NAMES[m], tint: m % 6 };
+          currentBlock = { m, y, startCol: i + 1, span: 1, name: MONTH_NAMES[m], tint: m % 6 };
         } else {
           currentBlock.span++;
         }
       }
       if (currentBlock) monthBlocks.push(currentBlock);
 
-      // Helper para saber el tinte de un día específico
-      const tintOfDay = (d) => d.getMonth() % 6;
-      // Helper para saber si un día es el ÚLTIMO de su mes en el rango (para borde divisor)
-      const isMonthEnd = (d) => {
-        const next = addDays(d, 1);
-        return next.getMonth() !== d.getMonth();
-      };
+      const tintOfDay  = (d) => d.getMonth() % 6;
+      const isMonthEnd = (d) => addDays(d, 1).getMonth() !== d.getMonth();
 
+      // ── LEFT PANEL HTML ──
+      let leftHtml = '';
+      // Corner cell — same height as header (24+38=62px)
+      leftHtml += `<div class="cal-corner" style="height:${headerH}px;display:flex;align-items:center;justify-content:center;border-bottom:2px solid var(--border-strong);">Flota</div>`;
+      // Vehicle rows
+      if (sortedVehicles.length === 0) {
+        leftHtml += `<div class="cal-vehicle" style="height:${rowH}px;color:var(--text-soft);font-style:italic;justify-content:center;">Sin unidades</div>`;
+      } else {
+        sortedVehicles.forEach(v => {
+          leftHtml += `<div class="cal-vehicle" style="height:${rowH}px;">
+            <div class="v-info">
+              <span class="v-plate">${v.dominio}</span>
+              <span class="v-model">${v.modelo || ''}</span>
+            </div>
+            <span class="v-cat-tag" title="${v.categoria}">${shortCat(v.categoria)}</span>
+          </div>`;
+        });
+      }
+      leftPanel.innerHTML = leftHtml;
+
+      // ── RIGHT GRID HTML ──
       let html = '';
-      // Esquina FLOTA (ocupa 2 filas)
-      html += `<div class="cal-corner" id="calCornerFlota" onclick="togglePinFlota()" title="Clic para fijar/desfijar esta columna" style="cursor:pointer;user-select:none;transition:background .2s;">${_flotaPinned ? '📌' : 'Flota'}</div>`;
 
-      // Fila 1: bloques mensuales con nombre del mes + año
+      // Fila 1: bloques de mes (grid-column starts at 1 in right grid)
       monthBlocks.forEach(b => {
-        html += `<div class="cal-month-block tint-${b.tint}" style="grid-column: ${b.startCol} / span ${b.span};">${b.name}<span class="myear">${b.y}</span></div>`;
+        html += `<div class="cal-month-block tint-${b.tint}" style="grid-column:${b.startCol}/span ${b.span};">${b.name}<span class="myear">${b.y}</span></div>`;
       });
 
-      // Fila 2: header de días (DOW + número), con tinte de mes y marcas de domingo/feriado/hoy
+      // Fila 2: headers de días
       for (let i = 0; i < totalDays; i++) {
         const d = addDays(rangeStart, i);
         const dow = DAY_LETTERS[d.getDay()];
@@ -5096,19 +5123,11 @@
         html += `<div class="cal-day ${cls}" title="${tip}"><span class="ddow">${dow}</span><span class="dnum">${dnum}</span></div>`;
       }
 
-      // Filas de flota + celdas (con tinte de mes y marcas)
+      // Filas de vehículos: solo celdas (sin columna vehicle — esa va en el left panel)
       if (sortedVehicles.length === 0) {
-        html += `<div class="cal-vehicle" style="color: var(--text-soft); font-style: italic;">Sin unidades cargadas</div>`;
         for (let i = 0; i < totalDays; i++) html += `<div class="cal-cell"></div>`;
       } else {
-        sortedVehicles.forEach((v) => {
-          html += `<div class="cal-vehicle">
-            <div class="v-info">
-              <span class="v-plate">${v.dominio}</span>
-              <span class="v-model">${v.modelo || ''}</span>
-            </div>
-            <span class="v-cat-tag" title="${v.categoria}">${shortCat(v.categoria)}</span>
-          </div>`;
+        sortedVehicles.forEach(v => {
           for (let i = 0; i < totalDays; i++) {
             const d = addDays(rangeStart, i);
             const isToday = fmt.isoDate(d) === todayStr;
@@ -5280,22 +5299,18 @@
       // Period label (mes activo)
       $('calPeriod').textContent = `${MONTH_NAMES[monthStart.getMonth()]} ${monthStart.getFullYear()}`;
 
-      // Auto-scroll: HOY centrado con 5 días antes visibles
+      // Auto-scroll: HOY con 5 días antes visibles (right grid solo tiene columnas de días)
       requestAnimationFrame(() => {
         const scroller = $('calScroll');
         if (!scroller) return;
         if (today >= rangeStart && today <= rangeEnd) {
           const todayDayIdx = daysBetween(rangeStart, today);
-          // scrollLeft so that today appears 5 columns after the vehCol
-          // i.e. 5 days are visible to the left of today
-          const targetX = vehColW + todayDayIdx * dayColW - vehColW - 5 * dayColW;
+          const targetX = todayDayIdx * dayColW - 5 * dayColW;
           scroller.scrollLeft = Math.max(0, targetX);
         } else {
           scroller.scrollLeft = 0;
         }
       });
-      // Rebuild pin overlay if active
-      if (_flotaPinned) setTimeout(renderPinOverlay, 80);
     }
 
     // ===== Popover de acciones al click en celda vacía =====
