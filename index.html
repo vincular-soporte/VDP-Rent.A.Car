@@ -2029,7 +2029,7 @@
         padding: 10px 12px;
       }
       .calendar-toolbar .toolbar-actions { width: 100%; justify-content: flex-end; }
-      .cal-vehicle { padding: 0 6px; min-height: 44px; gap: 4px; }
+      .cal-vehicle { padding: 0 6px; gap: 4px; min-height: 0; }
       .cal-vehicle .v-plate { font-size: 10.5px; }
       .cal-vehicle .v-model { font-size: 9.5px; }
       .cal-vehicle .v-cat-tag { font-size: 8.5px; padding: 1px 4px; }
@@ -5042,16 +5042,19 @@
       const rowH     = 38;
       const headerH  = 62;  // 24px meses + 38px días
 
-      const totalRows = 2 + (sortedVehicles.length || 1);
+      const nVehicles = sortedVehicles.length || 1;
 
-      // ── LEFT PANEL: corner + vehicle rows (never scrolls) ──
-      leftPanel.style.width  = vehColW + 'px';
-      leftPanel.style.minWidth = vehColW + 'px';
+      // ── LEFT PANEL: CSS grid so rows match exactly with right panel ──
+      leftPanel.style.width            = vehColW + 'px';
+      leftPanel.style.minWidth         = vehColW + 'px';
+      leftPanel.style.display          = 'grid';
+      leftPanel.style.gridTemplateRows = `${headerH}px repeat(${nVehicles}, ${rowH}px)`;
+      leftPanel.style.alignItems       = 'stretch';
 
-      // ── RIGHT GRID: month headers + day headers + cells (scrolls horizontally) ──
-      grid.style.display = 'grid';
+      // ── RIGHT GRID: matching rows (24px month header + 38px day header + n vehicle rows) ──
+      grid.style.display             = 'grid';
       grid.style.gridTemplateColumns = `repeat(${totalDays}, ${dayColW}px)`;
-      grid.style.gridTemplateRows    = `24px 38px repeat(${sortedVehicles.length || 1}, ${rowH}px)`;
+      grid.style.gridTemplateRows    = `24px ${rowH}px repeat(${nVehicles}, ${rowH}px)`;
 
       // Pre-calcular bloques de mes
       const monthBlocks = [];
@@ -5075,16 +5078,15 @@
       // ── LEFT PANEL HTML ──
       let leftHtml = '';
       // Corner cell
-      leftHtml += `<div class="cal-corner" style="height:${headerH}px;display:flex;align-items:center;justify-content:center;border-bottom:2px solid var(--border-strong);">Flota</div>`;
+      leftHtml += `<div class="cal-corner" style="display:flex;align-items:center;justify-content:center;border-bottom:2px solid var(--border-strong);">Flota</div>`;
       // Vehicle rows
       if (sortedVehicles.length === 0) {
-        leftHtml += `<div class="cal-vehicle" style="height:${rowH}px;color:var(--text-soft);font-style:italic;justify-content:center;">Sin unidades</div>`;
+        leftHtml += `<div class="cal-vehicle" style="color:var(--text-soft);font-style:italic;justify-content:center;">Sin unidades</div>`;
       } else {
         sortedVehicles.forEach(v => {
           const modelo = (v.modelo || '').trim();
-          // Short model: max 10 chars to fit in the narrow column
           const modeloShort = modelo.length > 12 ? modelo.slice(0, 11) + '…' : modelo;
-          leftHtml += `<div class="cal-vehicle" style="height:${rowH}px;padding:0 6px;">
+          leftHtml += `<div class="cal-vehicle" style="padding:0 6px;">
             <div class="v-info" style="flex:1;min-width:0;overflow:hidden;">
               <span class="v-plate" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.dominio}</span>
               ${modeloShort ? `<span style="display:block;font-size:8.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;margin-top:1px;">${modeloShort}</span>` : ''}
