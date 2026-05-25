@@ -2506,7 +2506,7 @@
             <!-- Split: columna izquierda FIJA + grilla de fechas scrolleable -->
             <div style="display:flex;overflow:hidden;width:100%;" id="calSplitWrap">
               <!-- Panel izquierdo: patentes siempre visibles -->
-              <div id="calLeftPanel" style="flex-shrink:0;background:var(--surface);border-right:2px solid var(--border-strong);box-shadow:4px 0 12px -4px rgba(0,0,0,0.15);z-index:5;overflow:hidden;"></div>
+              <div id="calLeftPanel" style="flex-shrink:0;background:var(--surface);border-right:1.5px solid var(--border-strong);z-index:5;overflow:hidden;"></div>
               <!-- Panel derecho: solo fechas y reservas, scrollea horizontalmente -->
               <div id="calScroll" class="scrollbar" style="flex:1;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;min-width:0;">
                 <div id="calGrid"></div>
@@ -5038,7 +5038,7 @@
 
       const isMobile = window.innerWidth <= 768;
       const dayColW  = 34;
-      const vehColW  = isMobile ? 100 : 140;
+      const vehColW  = isMobile ? 82 : 140;
       const rowH     = 38;
       const headerH  = 62;  // 24px meses + 38px días
 
