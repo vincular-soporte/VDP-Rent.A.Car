@@ -5054,7 +5054,7 @@
       leftPanel.style.width            = vehColW + 'px';
       leftPanel.style.minWidth         = vehColW + 'px';
       leftPanel.style.display          = 'grid';
-      leftPanel.style.gridTemplateRows = `${headerH}px repeat(${nVehicles}, ${rowH}px)`;
+      leftPanel.style.gridTemplateRows = `${headerH - rowH}px ${rowH}px repeat(${nVehicles}, ${rowH}px)`;
       leftPanel.style.alignItems       = 'stretch';
 
       // ── RIGHT GRID: matching rows (24px month header + rowH day header + n vehicle rows) ──
@@ -5092,11 +5092,12 @@
         sortedVehicles.forEach(v => {
           const modelo = (v.modelo || '').trim();
           const modeloShort = modelo.length > 12 ? modelo.slice(0, 11) + '…' : modelo;
-          leftHtml += `<div class="cal-vehicle" style="padding:0 6px;">
+          leftHtml += `<div class="cal-vehicle" style="padding:0 6px;cursor:pointer;" onclick="navigate('flota');setTimeout(()=>openFlotaModal('${v.id}'),180)" title="Ver perfil · ${v.dominio}${modelo ? ' · ' + modelo : ''}">
             <div class="v-info" style="flex:1;min-width:0;overflow:hidden;">
               <span class="v-plate" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.dominio}</span>
               ${modeloShort ? `<span style="display:block;font-size:8.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;margin-top:1px;">${modeloShort}</span>` : ''}
             </div>
+            <svg style="flex-shrink:0;opacity:0.35;" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </div>`;
         });
       }
