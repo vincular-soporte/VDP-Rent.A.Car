@@ -6641,8 +6641,10 @@
     }
     async function deleteNovedad() {
       if(!STATE._editingNovedadId||!confirm('¿Eliminar esta novedad?')) return;
-      STATE.novedades=(STATE.novedades||[]).filter(n=>n.id!==STATE._editingNovedadId);
+      const _novId = STATE._editingNovedadId;
+      STATE.novedades=(STATE.novedades||[]).filter(n=>n.id!==_novId);
       try {
+        await deleteModuleRow('nov_', _novId);
         await saveState();
         toast('Novedad eliminada','success');
       } catch(e) {
@@ -7650,7 +7652,9 @@
 
     function deleteTp() {
       if (!_editingTpId || !confirm('¿Eliminar este peaje?')) return;
-      STATE.telepase.movimientos = STATE.telepase.movimientos.filter(m=>m.id!==_editingTpId);
+      const idToDelete = _editingTpId;
+      STATE.telepase.movimientos = STATE.telepase.movimientos.filter(m=>m.id!==idToDelete);
+      deleteModuleRow('tp_', idToDelete);
       saveState(); closeTpModal(); renderTelepase();
       toast('Peaje eliminado', 'success');
     }
@@ -8031,7 +8035,9 @@
 
     function deleteMov() {
       if (!_editingMovId || !confirm('¿Eliminar este movimiento?')) return;
-      STATE.movimientos = STATE.movimientos.filter(m=>m.id!==_editingMovId);
+      const _movId = _editingMovId;
+      STATE.movimientos = STATE.movimientos.filter(m=>m.id!==_movId);
+      deleteModuleRow('mov_', _movId);
       saveState(); closeMovModal(); renderMovimientos();
       toast('Movimiento eliminado', 'success');
     }
@@ -12017,7 +12023,9 @@
     function deleteAct() {
       if (!_editingActId) return;
       if (!confirm('¿Eliminar esta tarea? No se puede deshacer.')) return;
-      STATE.tasks = (STATE.tasks||[]).filter(t=>t.id!==_editingActId);
+      const _actId = _editingActId;
+      STATE.tasks = (STATE.tasks||[]).filter(t=>t.id!==_actId);
+      deleteModuleRow('task_', _actId);
       saveState(); closeActModal(); renderActividades(); toast('Tarea eliminada', 'success');
     }
 
@@ -12829,7 +12837,9 @@
     function deleteInfra() {
       if (!_editingInfraId) return;
       if (!confirm('¿Eliminar esta infracción? No se puede deshacer.')) return;
-      STATE.infracciones = (STATE.infracciones||[]).filter(i=>i.id!==_editingInfraId);
+      const _infraId = _editingInfraId;
+      STATE.infracciones = (STATE.infracciones||[]).filter(i=>i.id!==_infraId);
+      deleteModuleRow('infra_', _infraId);
       saveState();
       closeInfraModal();
       renderInfracciones();
