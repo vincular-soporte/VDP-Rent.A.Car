@@ -4436,8 +4436,16 @@
       try { await supa.delete(table, id); } catch (e) { console.error('deleteRow', table, id, e); }
     }
     // Eliminar un registro de módulo (task, infra, tp, mov, ctl)
+    // vdp_config usa 'key' como PK (no 'id'), por eso se llama directo con fetch
     async function deleteModuleRow(prefix, id) {
-      try { await supa.delete('vdp_config', prefix + id); } catch(e) { console.warn('deleteModuleRow', prefix, id, e); }
+      const key = prefix + id;
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/vdp_config?key=eq.${encodeURIComponent(key)}`, {
+          method: 'DELETE',
+          headers: supa.headers(),
+        });
+        if (!r.ok) console.warn('deleteModuleRow error', key, r.status);
+      } catch(e) { console.warn('deleteModuleRow', key, e); }
     }
 
     // ===== Export / Import / Reset desde la UI =====
