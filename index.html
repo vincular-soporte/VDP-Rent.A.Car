@@ -11064,7 +11064,19 @@
 
       try {
         if (table === 'vdp_config') {
-          if (newRecord?.data) {
+          if (eventType === 'DELETE') {
+            // Borrado de una fila individual de módulo (tp_, mov_, task_, infra_, nov_, ctl_, tpliq_)
+            const key = oldRecord?.key || newRecord?.key;
+            if (key) {
+              if      (key.startsWith('tp_'))     { const id=key.slice(3);  if(STATE.telepase) STATE.telepase.movimientos=(STATE.telepase.movimientos||[]).filter(x=>x.id!==id); }
+              else if (key.startsWith('tpliq_'))  { const id=key.slice(6);  if(STATE.telepase) STATE.telepase.liquidaciones=(STATE.telepase.liquidaciones||[]).filter(x=>x.id!==id); }
+              else if (key.startsWith('mov_'))    { const id=key.slice(4);  STATE.movimientos=(STATE.movimientos||[]).filter(x=>x.id!==id); }
+              else if (key.startsWith('task_'))   { const id=key.slice(5);  STATE.tasks=(STATE.tasks||[]).filter(x=>x.id!==id); }
+              else if (key.startsWith('infra_'))  { const id=key.slice(6);  STATE.infracciones=(STATE.infracciones||[]).filter(x=>x.id!==id); }
+              else if (key.startsWith('nov_'))    { const id=key.slice(4);  STATE.novedades=(STATE.novedades||[]).filter(x=>x.id!==id); }
+              else if (key.startsWith('ctl_'))    { const id=key.slice(4);  STATE.calTimeline=(STATE.calTimeline||[]).filter(x=>x.id!==id); }
+            }
+          } else if (newRecord?.data) {
             const d = newRecord.data;
             ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones','telepase','movimientos','calTimeline'].forEach(k => {
               if (d[k] !== undefined) STATE[k] = d[k];
@@ -11104,15 +11116,19 @@
         }
 
         const active = document.querySelector('.section.active')?.id?.replace('section-', '');
-        if (active === 'dashboard')  { try { renderStats(); renderCalendar(); } catch(e){} }
-        if (active === 'reservas')   { try { renderReservas(); } catch(e){} }
-        if (active === 'flota')      { try { renderFlota(); } catch(e){} }
-        if (active === 'clientes')   { try { renderClientes(); } catch(e){} }
-        if (active === 'empresas')   { try { renderEmpresas(); } catch(e){} }
-        if (active === 'financiero') { try { renderFinanciero(); } catch(e){} }
-        if (active === 'soporte')    { try { renderSoporte(); } catch(e){} }
-        if (active === 'novedades')  { try { renderNovedades(); } catch(e){} }
-        if (active === 'pagos')      { try { renderPagos(); } catch(e){} }
+        if (active === 'dashboard')    { try { renderStats(); renderCalendar(); } catch(e){} }
+        if (active === 'reservas')     { try { renderReservas(); } catch(e){} }
+        if (active === 'flota')        { try { renderFlota(); } catch(e){} }
+        if (active === 'clientes')     { try { renderClientes(); } catch(e){} }
+        if (active === 'empresas')     { try { renderEmpresas(); } catch(e){} }
+        if (active === 'financiero')   { try { renderFinanciero(); } catch(e){} }
+        if (active === 'soporte')      { try { renderSoporte(); } catch(e){} }
+        if (active === 'novedades')    { try { renderNovedades(); } catch(e){} }
+        if (active === 'pagos')        { try { renderPagos(); } catch(e){} }
+        if (active === 'telepase')     { try { renderTelepase(); } catch(e){} }
+        if (active === 'movimientos')  { try { renderMovimientos(); } catch(e){} }
+        if (active === 'actividades')  { try { renderActividades(); } catch(e){} }
+        if (active === 'infracciones') { try { renderInfracciones(); updateInfraBadge(); } catch(e){} }
         try { updateBadges(); renderLegend(); updateNovedadesBadge(); updateSoporteBadge(); updatePagosBadge(); } catch(e) {}
 
         // Indicador de sincronización en vivo (logo animado fijo)
