@@ -3274,7 +3274,17 @@
                 </div>
                 <div style="margin-top:8px;padding:12px;background:var(--vdp-blue-soft);border-radius:8px;border:1px solid var(--border);">
                   <div style="font-size:12px;font-weight:700;color:var(--vdp-blue);margin-bottom:4px;">📎 Comprobante</div>
-                  <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;">El comprobante se compartirá vía chat de soporte. Al confirmar el pago, te abriremos un ticket directo con Soporte.</div>
+                  <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;">Adjuntá el comprobante de pago (imagen o PDF). Se enviará automáticamente en el chat de soporte.</div>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <div id="pagoComprobanteBtn" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:white;border:1.5px dashed var(--vdp-blue);border-radius:6px;font-size:12px;color:var(--vdp-blue);font-weight:600;white-space:nowrap;">
+                      📄 Seleccionar archivo
+                    </div>
+                    <input type="file" id="pagoComprobanteFile" accept="image/*,application/pdf" style="display:none;" onchange="previewComprobante(this)" />
+                    <span id="pagoComprobanteNombre" style="font-size:11.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;">Sin archivo</span>
+                  </label>
+                  <div id="pagoComprobantePreview" style="margin-top:8px;display:none;">
+                    <img id="pagoComprobanteImg" style="max-width:100%;max-height:120px;border-radius:6px;border:1px solid var(--border);object-fit:contain;" />
+                  </div>
                 </div>
               </div>
               <div class="modal-footer">
@@ -3824,30 +3834,39 @@
 
       async get(table, id) {
         const pkField = table === 'vdp_config' ? 'key' : 'id';
-        const r = await supa._fetchTO(`${SUPABASE_URL}/rest/v1/${table}?${pkField}=eq.${id}&select=*`, {
-          headers: supa.headers(),
-        }, 15000);
-        if (!r.ok) return null;
-        const arr = await r.json();
-        return arr[0] || null;
+        try {
+          const r = await supa._fetchTO(`${SUPABASE_URL}/rest/v1/${table}?${pkField}=eq.${id}&select=*`, {
+            headers: supa.headers(),
+          }, 15000);
+          if (!r.ok) return null;
+          const arr = await r.json();
+          return arr[0] || null;
+        } catch (e) { return null; } // timeout/red → null (loadState conserva el estado)
       },
 
+      // getAll y getAllByPrefix devuelven null SOLO ante un error (red, timeout, HTTP no-ok
+      // como un 401 por token vencido). Un array vacío [] significa "no hay filas" (vacío real).
+      // loadState usa esa distinción para no destruir datos locales cuando una recarga falla.
       async getAll(table) {
-        const r = await supa._fetchTO(`${SUPABASE_URL}/rest/v1/${table}?select=*`, {
-          headers: supa.headers(),
-        }, 15000);
-        if (!r.ok) return [];
-        return await r.json();
+        try {
+          const r = await supa._fetchTO(`${SUPABASE_URL}/rest/v1/${table}?select=*`, {
+            headers: supa.headers(),
+          }, 15000);
+          if (!r.ok) return null;
+          return await r.json();
+        } catch (e) { return null; }
       },
 
       async getAllByPrefix(prefix) {
         // Fetch vdp_config rows where key starts with prefix
-        const r = await supa._fetchTO(
-          `${SUPABASE_URL}/rest/v1/vdp_config?key=like.${encodeURIComponent(prefix + '%')}&select=*`,
-          { headers: supa.headers() }, 15000
-        );
-        if (!r.ok) return [];
-        return await r.json();
+        try {
+          const r = await supa._fetchTO(
+            `${SUPABASE_URL}/rest/v1/vdp_config?key=like.${encodeURIComponent(prefix + '%')}&select=*`,
+            { headers: supa.headers() }, 15000
+          );
+          if (!r.ok) return null;
+          return await r.json();
+        } catch (e) { return null; }
       },
 
       async upsert(table, id, data) {
@@ -4133,6 +4152,19 @@
       return (res.montoTotal || 0) + totalAdicionalesReserva(res);
     }
 
+    // ===== Colores canónicos de lugares — fuente de verdad =====
+    // Si un lugar cargado desde Supabase tiene el mismo name que uno de aquí
+    // y no fue modificado manualmente (flag customColor !== true), se restaura su color.
+    const CANONICAL_LOCATIONS = {
+      'La Plata':   { bg: '#FF00F7', border: '#b300ad', text: '#FFFFFF' },
+      'CABA':       { bg: '#6696FF', border: '#3a5ce0', text: '#FFFFFF' },
+      'Zona Norte': { bg: '#00FF33', border: '#00b324', text: '#1F1300' },
+      'Ezeiza':     { bg: '#FDDA81', border: '#c9a73b', text: '#1F1300' },
+      'Aeroparque': { bg: '#037901', border: '#025401', text: '#FFFFFF' },
+      'Zona Sur':   { bg: '#00EEFF', border: '#00a8b8', text: '#1F1300' },
+      'Zona Oeste': { bg: '#FFBB00', border: '#c98f00', text: '#1F1300' },
+    };
+
     // ===== State global =====
     // Datos vacíos: la app arranca limpia. Sólo se conserva la config base.
     // ===== APP VERSION =====
@@ -4154,12 +4186,13 @@
         franquiciaDefault: 500000,
       },
       locations: [
-        { id: 'l1', name: 'La Plata',    bg: '#DC2626', border: '#991B1B', text: '#FFFFFF' }, // Rojo (oficina central)
-        { id: 'l2', name: 'Capital',     bg: '#2563EB', border: '#1D4ED8', text: '#FFFFFF' }, // Azul
-        { id: 'l3', name: 'Zona Norte',  bg: '#16A34A', border: '#15803D', text: '#FFFFFF' }, // Verde
-        { id: 'l4', name: 'Ezeiza',      bg: '#FBBF24', border: '#D97706', text: '#422006' }, // Amarillo
-        { id: 'l5', name: 'Aeroparque',  bg: '#64748B', border: '#475569', text: '#FFFFFF' }, // Gris
-        { id: 'l6', name: 'A domicilio', bg: '#7F1D1D', border: '#5F1717', text: '#FFFFFF' }, // Bordó
+        { id: 'l1', name: 'La Plata',    bg: '#FF00F7', border: '#b300ad', text: '#FFFFFF' }, // Magenta
+        { id: 'l2', name: 'CABA',        bg: '#6696FF', border: '#3a5ce0', text: '#FFFFFF' }, // Azul claro
+        { id: 'l3', name: 'Zona Norte',  bg: '#00FF33', border: '#00b324', text: '#1F1300' }, // Verde neón
+        { id: 'l4', name: 'Ezeiza',      bg: '#FDDA81', border: '#c9a73b', text: '#1F1300' }, // Amarillo arena
+        { id: 'l5', name: 'Aeroparque',  bg: '#037901', border: '#025401', text: '#FFFFFF' }, // Verde oscuro
+        { id: 'l6', name: 'Zona Sur',    bg: '#00EEFF', border: '#00a8b8', text: '#1F1300' }, // Cyan
+        { id: 'l7', name: 'Zona Oeste',  bg: '#FFBB00', border: '#c98f00', text: '#1F1300' }, // Naranja/dorado
       ],
       additionals: [
         // Precios en 0: el operador los configura desde el engranaje
@@ -4272,14 +4305,21 @@
       }
 
       // 2) COLECCIONES CON TABLA PROPIA — cada registro = una fila
+      //    Usan safeUpsert (3 reintentos con backoff) para que un fallo puntual
+      //    de red no impida que el resto del lote se guarde. Si algo falla tras
+      //    los reintentos, avisamos al operador en vez de perder el dato en silencio.
       try {
-        await Promise.all([
-          ...STATE.vehicles.map(v     => supa.upsert('vdp_vehicles',     v.id,  v)),
-          ...STATE.clients.map(c      => supa.upsert('vdp_clients',      c.id,  c)),
-          ...STATE.empresas.map(e     => supa.upsert('vdp_empresas',     e.id,  e)),
-          ...STATE.reservations.map(r => supa.upsert('vdp_reservations', r.id,  r)),
-          ...STATE.blocks.map(b       => supa.upsert('vdp_blocks',       b.id,  b)),
+        const colResults = await Promise.all([
+          ...STATE.vehicles.map(v     => safeUpsert('vdp_vehicles',     v.id,  v)),
+          ...STATE.clients.map(c      => safeUpsert('vdp_clients',      c.id,  c)),
+          ...STATE.empresas.map(e     => safeUpsert('vdp_empresas',     e.id,  e)),
+          ...STATE.reservations.map(r => safeUpsert('vdp_reservations', r.id,  r)),
+          ...STATE.blocks.map(b       => safeUpsert('vdp_blocks',       b.id,  b)),
         ]);
+        const fallidos = colResults.filter(ok => ok === false).length;
+        if (fallidos > 0 && typeof toast === 'function') {
+          toast('⚠️ ' + fallidos + ' registro' + (fallidos>1?'s':'') + ' no se sincronizó. Revisá tu conexión y volvé a guardar.', 'error');
+        }
       } catch(e) { console.warn('saveState colecciones:', e); }
 
       // 3) MÓDULOS EN vdp_config — cada registro = su propia fila con prefijo
@@ -4324,6 +4364,9 @@
           supa.getAllByPrefix('ctl_'),
         ]);
 
+        // Helper: ¿el fetch trajo filas reales? null = error (conservar), [] = vacío real.
+        const _has = (rows) => Array.isArray(rows) && rows.length > 0;
+
         // CONFIG BASE
         let _ticketsEnConfig = false;
         if (cfgRow?.data) {
@@ -4334,29 +4377,41 @@
           });
           _ticketsEnConfig = d.tickets !== undefined;
 
+          // Restaurar colores canónicos en locations cargadas desde Supabase
+          // (si el lugar no tiene customColor=true, se aplica el color canónico)
+          if (Array.isArray(STATE.locations)) {
+            STATE.locations = STATE.locations.map(loc => {
+              const canon = CANONICAL_LOCATIONS[loc.name];
+              if (canon && !loc.customColor) {
+                return { ...loc, ...canon };
+              }
+              return loc;
+            });
+          }
+
           // Fallback desde main_config (versión vieja que tenía todo en un blob)
-          if (!novRows.length   && Array.isArray(d.novedades))    STATE.novedades    = d.novedades;
-          if (!taskRows.length  && Array.isArray(d.tasks))        STATE.tasks        = d.tasks;
-          if (!infraRows.length && Array.isArray(d.infracciones)) STATE.infracciones = d.infracciones;
-          if (!tpRows.length    && d.telepase?.movimientos)       STATE.telepase     = d.telepase;
-          if (!movRows.length   && Array.isArray(d.movimientos))  STATE.movimientos  = d.movimientos;
-          if (!ctlRows.length   && Array.isArray(d.calTimeline))  STATE.calTimeline  = d.calTimeline;
+          if (!_has(novRows)   && Array.isArray(d.novedades))    STATE.novedades    = d.novedades;
+          if (!_has(taskRows)  && Array.isArray(d.tasks))        STATE.tasks        = d.tasks;
+          if (!_has(infraRows) && Array.isArray(d.infracciones)) STATE.infracciones = d.infracciones;
+          if (!_has(tpRows)    && d.telepase?.movimientos)       STATE.telepase     = d.telepase;
+          if (!_has(movRows)   && Array.isArray(d.movimientos))  STATE.movimientos  = d.movimientos;
+          if (!_has(ctlRows)   && Array.isArray(d.calTimeline))  STATE.calTimeline  = d.calTimeline;
         }
 
         // MÓDULOS — reconstruir arrays desde filas individuales (tienen prioridad sobre el blob)
         const rowData = r => { const d = { ...r.data }; delete d._type; return d; };
 
-        if (novRows.length)   STATE.novedades    = novRows.map(rowData);
-        if (taskRows.length)  STATE.tasks        = taskRows.map(rowData);
-        if (infraRows.length) STATE.infracciones = infraRows.map(rowData);
-        if (tpRows.length || tpliqRows.length) {
+        if (_has(novRows))   STATE.novedades    = novRows.map(rowData);
+        if (_has(taskRows))  STATE.tasks        = taskRows.map(rowData);
+        if (_has(infraRows)) STATE.infracciones = infraRows.map(rowData);
+        if (_has(tpRows) || _has(tpliqRows)) {
           STATE.telepase = {
-            movimientos:   tpRows.map(rowData),
-            liquidaciones: tpliqRows.map(rowData),
+            movimientos:   _has(tpRows)    ? tpRows.map(rowData)    : [],
+            liquidaciones: _has(tpliqRows) ? tpliqRows.map(rowData) : [],
           };
         }
-        if (movRows.length) STATE.movimientos = movRows.map(rowData);
-        if (ctlRows.length) STATE.calTimeline  = ctlRows.map(rowData);
+        if (_has(movRows)) STATE.movimientos = movRows.map(rowData);
+        if (_has(ctlRows)) STATE.calTimeline  = ctlRows.map(rowData);
 
         // Fallback desde ops_config / extra_config (versiones intermedias)
         try {
@@ -4365,13 +4420,13 @@
             supa.get('vdp_config', 'extra_config'),
           ]);
           if (opsCfg?.data) {
-            if (!taskRows.length  && Array.isArray(opsCfg.data.tasks))        STATE.tasks        = opsCfg.data.tasks;
-            if (!infraRows.length && Array.isArray(opsCfg.data.infracciones)) STATE.infracciones = opsCfg.data.infracciones;
+            if (!_has(taskRows)  && Array.isArray(opsCfg.data.tasks))        STATE.tasks        = opsCfg.data.tasks;
+            if (!_has(infraRows) && Array.isArray(opsCfg.data.infracciones)) STATE.infracciones = opsCfg.data.infracciones;
           }
           if (extraCfg?.data) {
-            if (!tpRows.length   && extraCfg.data.telepase)                    STATE.telepase    = extraCfg.data.telepase;
-            if (!movRows.length  && Array.isArray(extraCfg.data.movimientos))  STATE.movimientos = extraCfg.data.movimientos;
-            if (!ctlRows.length  && Array.isArray(extraCfg.data.calTimeline))  STATE.calTimeline = extraCfg.data.calTimeline;
+            if (!_has(tpRows)   && extraCfg.data.telepase)                    STATE.telepase    = extraCfg.data.telepase;
+            if (!_has(movRows)  && Array.isArray(extraCfg.data.movimientos))  STATE.movimientos = extraCfg.data.movimientos;
+            if (!_has(ctlRows)  && Array.isArray(extraCfg.data.calTimeline))  STATE.calTimeline = extraCfg.data.calTimeline;
           }
         } catch(e) { /* fallback opcional */ }
 
@@ -4390,12 +4445,15 @@
         if (!Array.isArray(STATE.movimientos))  STATE.movimientos  = [];
         if (!Array.isArray(STATE.calTimeline))  STATE.calTimeline  = [];
 
-        // COLECCIONES
-        STATE.vehicles     = vehicles.map(r => r.data);
-        STATE.clients      = clients.map(r => r.data);
-        STATE.empresas     = empresas.map(r => r.data);
-        STATE.reservations = reservations.map(r => r.data);
-        STATE.blocks       = blocks.map(r => r.data);
+        // COLECCIONES — solo reemplazar si el fetch fue exitoso.
+        // null = error de red/HTTP/token vencido → conservamos los datos locales
+        // (esto evita el "borrado fantasma": un 401 por token vencido devolvía []
+        // y vaciaba el estado al tiempo). [] = vacío real → sí reemplaza.
+        if (vehicles     !== null) STATE.vehicles     = vehicles.map(r => r.data);
+        if (clients      !== null) STATE.clients      = clients.map(r => r.data);
+        if (empresas     !== null) STATE.empresas     = empresas.map(r => r.data);
+        if (reservations !== null) STATE.reservations = reservations.map(r => r.data);
+        if (blocks       !== null) STATE.blocks       = blocks.map(r => r.data);
 
         console.log(`✅ loadState OK — tasks:${STATE.tasks.length} infra:${STATE.infracciones.length} tp:${STATE.telepase.movimientos.length} mov:${STATE.movimientos.length}`);
         return true;
@@ -5848,6 +5906,7 @@
       loc.bg = hex;
       loc.border = darkenHex(hex, 0.25);
       loc.text = bestTextOn(hex);
+      loc.customColor = true; // El usuario cambió el color — se conserva al recargar
       const swatch = document.querySelector(`.loc-row[data-id="${id}"] .loc-swatch`);
       if (swatch) swatch.style.background = hex;
     }
@@ -11089,6 +11148,13 @@
             ['empresa','locations','additionals','charges','staff','origenes','reservaCounter','novedades','tickets','pagos','planes','tasks','infracciones','telepase','movimientos','calTimeline'].forEach(k => {
               if (d[k] !== undefined) STATE[k] = d[k];
             });
+            // Mantener colores canónicos también en cambios entrantes por realtime
+            if (Array.isArray(STATE.locations)) {
+              STATE.locations = STATE.locations.map(loc => {
+                const canon = CANONICAL_LOCATIONS[loc.name];
+                return (canon && !loc.customColor) ? { ...loc, ...canon } : loc;
+              });
+            }
             if (_activeChatTicketId) {
               try { renderChatMessages(); renderChatControls(); } catch(e){}
             }
@@ -11394,7 +11460,39 @@
 
       const vencStr = plan.vigenciaHasta ? new Date(plan.vigenciaHasta+'T00:00:00').toLocaleDateString('es-AR',{day:'numeric',month:'long',year:'numeric'}) : '—';
 
+      // Banner de alerta de vencimiento (se muestra si vence en ≤7 días o ya venció)
+      const alertaBanner = (() => {
+        if (dias === null) return '';
+        if (dias < 0) {
+          return '<div style="background:#FEE2E2;border:2px solid #EF4444;border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;">' +
+            '<span style="font-size:28px;">🚨</span>' +
+            '<div>' +
+              '<div style="font-weight:800;font-size:15px;color:#991B1B;margin-bottom:2px;">Acceso vencido hace ' + Math.abs(dias) + ' día' + (Math.abs(dias)!==1?'s':'') + '</div>' +
+              '<div style="font-size:13px;color:#B91C1C;">Tu suscripción venció el ' + vencStr + '. Informá el pago para restablecer el acceso completo.</div>' +
+              '<button onclick="openInformarPago()" class="btn btn-sm" style="margin-top:10px;background:#EF4444;color:#fff;font-weight:700;">💳 Informar pago ahora</button>' +
+            '</div>' +
+          '</div>';
+        }
+        if (dias <= 7) {
+          const urgente = dias <= 2;
+          return '<div style="background:' + (urgente?'#FEF3C7':'#FFFBEB') + ';border:2px solid ' + (urgente?'#F59E0B':'#FCD34D') + ';border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;">' +
+            '<span style="font-size:28px;">' + (urgente?'⚠️':'🔔') + '</span>' +
+            '<div>' +
+              '<div style="font-weight:800;font-size:15px;color:#92400E;margin-bottom:2px;">' +
+                (dias === 0 ? 'Tu acceso vence hoy' : 'Tu acceso vence en ' + dias + ' día' + (dias!==1?'s':'')) +
+              '</div>' +
+              '<div style="font-size:13px;color:#B45309;">Fecha de vencimiento: ' + vencStr + '. Realizá el pago antes del día 5 para mantener el acceso sin interrupciones.</div>' +
+              (estado !== 'informado'
+                ? '<button onclick="openInformarPago()" class="btn btn-sm" style="margin-top:10px;background:#F59E0B;color:#fff;font-weight:700;">💳 Informar pago</button>'
+                : '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#0066CC;">📨 Pago ya informado — aguardá la confirmación de Soporte.</div>') +
+            '</div>' +
+          '</div>';
+        }
+        return '';
+      })();
+
       cont.innerHTML =
+        alertaBanner +
         // Header
         '<div style="margin-bottom:24px;">' +
           '<h2 style="font-family:\'Bricolage Grotesque\',sans-serif;font-size:26px;font-weight:600;margin:0 0 6px;letter-spacing:-0.02em;display:flex;align-items:center;gap:10px;">' +
@@ -11565,7 +11663,32 @@
       $('pagoMetodo').value = 'transferencia';
       $('pagoReferencia').value = '';
       $('pagoNotas').value = '';
+      // Limpiar comprobante previo
+      const fi = $('pagoComprobanteFile');
+      if (fi) { fi.value = ''; fi._dataUrl = null; fi._fileName = null; }
+      const nom = $('pagoComprobanteNombre');
+      if (nom) nom.textContent = 'Sin archivo';
+      const prev = $('pagoComprobantePreview');
+      if (prev) prev.style.display = 'none';
       $('informarPagoModal').classList.add('open');
+    }
+
+    function previewComprobante(input) {
+      const file = input.files[0];
+      if (!file) return;
+      $('pagoComprobanteNombre').textContent = file.name;
+      input._fileName = file.name;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        input._dataUrl = e.target.result;
+        if (file.type.startsWith('image/')) {
+          const img = $('pagoComprobanteImg');
+          if (img) { img.src = e.target.result; $('pagoComprobantePreview').style.display = ''; }
+        } else {
+          $('pagoComprobantePreview').style.display = 'none';
+        }
+      };
+      reader.readAsDataURL(file);
     }
 
     function closeInformarPago() {
@@ -11618,9 +11741,34 @@
         ticketId: tid,
       });
 
+      // Si hay comprobante adjunto, agregarlo como mensaje con imagen en el ticket
+      const comprobanteInput = $('pagoComprobanteFile');
+      if (comprobanteInput?._dataUrl) {
+        const ticket = (STATE.tickets||[]).find(x => x.id === tid);
+        if (ticket) {
+          const ahoraComp = Date.now();
+          const esImagen = (comprobanteInput._fileName||'').match(/\.(jpe?g|png|gif|webp)$/i);
+          let msgComp = '📎 Comprobante adjunto: ' + (comprobanteInput._fileName || 'archivo');
+          if (esImagen) {
+            msgComp += '\n[img:' + comprobanteInput._dataUrl + ']';
+          } else {
+            msgComp += '\n(Archivo PDF — descargá desde el historial)';
+          }
+          ticket.mensajes.push({
+            id: 'm_comp_' + ahoraComp,
+            de: 'usuario',
+            autor: STATE.currentUser?.name || username,
+            texto: msgComp,
+            comprobanteDataUrl: comprobanteInput._dataUrl,
+            comprobanteNombre: comprobanteInput._fileName,
+            fecha: ahoraComp, leido: false,
+          });
+        }
+      }
+
       saveState();
       closeInformarPago();
-      toast('Pago informado. Adjuntá el comprobante en el chat.', 'success');
+      toast('Pago informado con comprobante. Te abrimos el chat.', 'success');
       setTimeout(()=>{ openChatDrawer(tid); }, 250);
     }
 
