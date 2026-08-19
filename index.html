@@ -391,7 +391,7 @@ textarea{resize:vertical;min-height:60px;}
   <div style="padding:12px 16px;text-align:center;">
       <div style="font-size:13px;font-weight:700;color:#fff;letter-spacing:0.08em;">Y-Net</div>
       <div style="font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:0.03em;margin-top:2px;">Warranty Operations Platform</div>
-      <div id="app-version-stamp" style="font-size:9px;color:rgba(255,255,255,0.4);margin-top:3px;">v2026.07.17-g</div>
+      <div id="app-version-stamp" style="font-size:9px;color:rgba(255,255,255,0.4);margin-top:3px;">v2026.07.17-h</div>
     </div>
 </aside>
 
@@ -1102,6 +1102,16 @@ textarea{resize:vertical;min-height:60px;}
     <div class="field"><label>Concesionario (opcional)</label><select id="cnt-entry-dealer"><option value="">— sin asignar —</option></select></div>
     <div class="field"><label>Otro contacto (si no es concesionario)</label><input type="text" id="cnt-entry-other" placeholder="Nombre de persona o área interna"></div>
     <div class="field"><label>Notas</label><textarea id="cnt-entry-notes" rows="2"></textarea></div>
+    <div id="cnt-ficha" style="display:none;border-top:1px solid var(--border);margin-top:4px;padding-top:10px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Ficha de consulta</div>
+      <div class="field"><label>Usuario que consulta</label><input type="text" id="cnt-entry-user" placeholder="Nombre / concesionario / email de quien consulta"></div>
+      <div class="field"><label>Fecha de respuesta</label><input type="date" id="cnt-entry-respdate"></div>
+      <div class="field"><label>Mensaje del usuario</label><textarea id="cnt-entry-msg" rows="3" placeholder="Pegá acá el mensaje que transmite el usuario"></textarea></div>
+      <div class="field"><label>Respuesta Yamaha</label><textarea id="cnt-entry-reply" rows="3" placeholder="Pegá acá lo que le respondemos"></textarea></div>
+      <div class="field"><label>Acción</label><textarea id="cnt-entry-action" rows="2" placeholder="Iniciativa o acción tomada (si corresponde)"></textarea></div>
+      <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="cnt-entry-followup" style="width:16px;height:16px;" onchange="cntToggleFollowup()"><label for="cnt-entry-followup" style="margin:0;cursor:pointer;">Dar seguimiento — cargar al calendario como actividad</label></div>
+      <div class="field" id="cnt-followup-date-wrap" style="display:none;"><label>Fecha de seguimiento</label><input type="date" id="cnt-entry-followup-date"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="cnt-entry-delete" style="color:var(--primary);margin-right:auto;" onclick="deleteCntEntry()">Eliminar</button>
       <button class="btn btn-ghost" onclick="closeModal('modal-cnt-entry')">Cancelar</button>
@@ -2585,7 +2595,7 @@ function renderCalendar() {
   document.getElementById('cal-selected-info').textContent = acts.length === 0 ? 'Sin actividades' : acts.length+' actividad'+(acts.length>1?'es':'');
 }
 
-const APP_VERSION = 'v2026.07.17-g';
+const APP_VERSION = 'v2026.07.17-h';
 function paintVersionStamp(){ const el = document.getElementById('app-version-stamp'); if (el) el.textContent = APP_VERSION; }
 function openDayEntry(id) {
   // Las entradas del día pueden ser actividades reales o virtuales
@@ -4004,6 +4014,7 @@ let pendingReclamoEstado = '';
 const RECLAMO_TYPES = ['RECLAMO_ARG','RECLAMO_UY'];
 function isReclamoType(t) { return RECLAMO_TYPES.includes(t.id); }
 function cntAdd(t) {
+  if (t.detailed) { openCntEntryFromQuick(t); return; }
   pendingCntType = t;
   pendingMotivo = '';
   pendingReclamoTipo = '';
@@ -4174,7 +4185,27 @@ function openCntEntry(id) {
   ds.value = e.dealerIdx != null ? e.dealerIdx : '';
   document.getElementById('cnt-entry-other').value = e.otherName || '';
   document.getElementById('cnt-entry-notes').value = e.notes || '';
+  // Ficha de consulta (tipos detallados)
+  const _ed = (e.ts||'').slice(0,10);
+  document.getElementById('cnt-entry-user').value = e.user || '';
+  document.getElementById('cnt-entry-respdate').value = e.respDate || _ed;
+  document.getElementById('cnt-entry-msg').value = e.msg || '';
+  document.getElementById('cnt-entry-reply').value = e.reply || '';
+  document.getElementById('cnt-entry-action').value = e.action || '';
+  document.getElementById('cnt-entry-followup').checked = !!e.followup;
+  document.getElementById('cnt-entry-followup-date').value = e.followupDate || _ed;
+  sel.onchange = cntToggleFicha;
+  cntToggleFollowup();
+  cntToggleFicha();
   document.getElementById('modal-cnt-entry').classList.add('active');
+}
+function cntToggleFicha(){
+  const tid = document.getElementById('cnt-entry-type').value;
+  const t = CNT_TYPES.find(x => x.id === tid);
+  document.getElementById('cnt-ficha').style.display = (t && t.detailed) ? 'block' : 'none';
+}
+function cntToggleFollowup(){
+  document.getElementById('cnt-followup-date-wrap').style.display = document.getElementById('cnt-entry-followup').checked ? 'block' : 'none';
 }
 function saveCntEntry() {
   const e = counterLog.find(x => String(x.id) === editingCntEntryId);
@@ -4187,6 +4218,33 @@ function saveCntEntry() {
   e.dealerIdx = di === '' ? null : parseInt(di);
   e.otherName = document.getElementById('cnt-entry-other').value.trim() || null;
   e.notes = document.getElementById('cnt-entry-notes').value;
+  const stype = CNT_TYPES.find(x => x.id === e.type);
+  if (stype && stype.detailed) {
+    e.user = document.getElementById('cnt-entry-user').value.trim();
+    e.respDate = document.getElementById('cnt-entry-respdate').value || (e.ts||'').slice(0,10);
+    e.msg = document.getElementById('cnt-entry-msg').value;
+    e.reply = document.getElementById('cnt-entry-reply').value;
+    e.action = document.getElementById('cnt-entry-action').value;
+    e.followup = document.getElementById('cnt-entry-followup').checked;
+    e.followupDate = document.getElementById('cnt-entry-followup-date').value || e.respDate;
+    const notesTxt = 'Mensaje del usuario:\n' + (e.msg||'') + '\n\nRespuesta Yamaha:\n' + (e.reply||'') + (e.action?('\n\nAcción:\n'+e.action):'');
+    if (e.followup) {
+      const title = (stype.label) + ' — ' + (e.user || 'consulta');
+      const existing = e.followActId ? activities.find(a => String(a.id) === String(e.followActId)) : null;
+      if (existing) {
+        existing.title = title; existing.date = e.followupDate; existing.due = e.followupDate; existing.notes = notesTxt;
+      } else {
+        const na = { id: Date.now()+Math.random(), title: title, type: 'Seguimiento', date: e.followupDate, time: '', duration: null, recur: 'none', status: 'Pendiente', owner: (currentUser?currentUser.ze:null), assignee: null, watchers: [], country: 'Ambos', priority: 'Media', notes: notesTxt, due: e.followupDate };
+        activities.push(na);
+        e.followActId = na.id;
+      }
+      save(STORAGE.activities, activities);
+    } else if (e.followActId) {
+      activities = activities.filter(a => String(a.id) !== String(e.followActId));
+      save(STORAGE.activities, activities);
+      e.followActId = null;
+    }
+  }
   save(STORAGE.counter, counterLog);
   closeModal('modal-cnt-entry');
   refreshCounter();
@@ -4205,7 +4263,7 @@ function openCntConfig() {
 }
 function renderCntConfig() {
   document.getElementById('cnt-config-fields').innerHTML = CNT_TYPES.map((t,i) =>
-    '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);"><input type="text" data-cfg-label="'+i+'" value="'+esc(t.label)+'" style="flex:1;"><input type="number" data-cfg-min="'+i+'" min="1" value="'+t.avgMin+'" style="width:70px;" title="Minutos promedio">'+(CNT_TYPES.length>1?'<button class="del-mini" onclick="removeCntType('+i+')">×</button>':'')+'</div>'
+    '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);"><input type="text" data-cfg-label="'+i+'" value="'+esc(t.label)+'" style="flex:1;"><input type="number" data-cfg-min="'+i+'" min="1" value="'+t.avgMin+'" style="width:70px;" title="Minutos promedio"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);cursor:pointer;white-space:nowrap;" title="Abre una ficha (usuario, mensaje, respuesta, acción y seguimiento)"><input type="checkbox" data-cfg-detailed="'+i+'" '+(t.detailed?'checked':'')+' style="width:14px;height:14px;">ficha</label>'+(CNT_TYPES.length>1?'<button class="del-mini" onclick="removeCntType('+i+')">×</button>':'')+'</div>'
   ).join('') + '<div style="display:flex;gap:6px;margin-top:10px;"><input type="text" id="cnt-new-type-label" placeholder="Nueva actividad..." style="flex:1;"><input type="number" id="cnt-new-type-min" min="1" value="15" style="width:70px;" title="Min promedio"><button class="btn btn-primary btn-sm" onclick="addCntType()">+</button></div>';
 }
 function addCntType() {
@@ -4229,6 +4287,8 @@ function saveCntConfig() {
     const min = parseInt(document.querySelector('[data-cfg-min="'+i+'"]').value);
     if (lbl) t.label = lbl;
     if (min > 0) t.avgMin = min;
+    const dchk = document.querySelector('[data-cfg-detailed="'+i+'"]');
+    if (dchk) t.detailed = dchk.checked;
   });
   saveCntTypes();
   closeModal('modal-cnt-config');
